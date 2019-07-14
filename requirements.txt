@@ -1,0 +1,7 @@
+numpy
+tqdm
+scrapy
+dotdict
+urllib3
+jinja2
+pandas
