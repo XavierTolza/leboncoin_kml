@@ -3,8 +3,6 @@ import logging
 import re
 from argparse import ArgumentParser
 
-from tqdm import tqdm
-
 import numpy as np
 import scrapy
 from dotdict import dotdict
@@ -46,7 +44,7 @@ class Scrapper(scrapy.Spider):
     def parse_page(self, response):
         self.logger.info("Parsing page %s" % response._url)
         elements = response.xpath('//div[@itemprop="priceSpecification"]/../../..')
-        for element in tqdm(elements):
+        for element in elements:
             attribs = dotdict(element.attrib)
             if "title" in attribs and "href" in attribs:
                 url = attribs.href
@@ -71,7 +69,7 @@ class Scrapper(scrapy.Spider):
             page_number = np.array(page_number)
             page_number[page_number <= current_page] = np.max(page_number) + 10
             next_page_url = bottom_links[bottom_link_index[np.argsort(page_number)[0]]]
-            yield response.follow(next_page_url, self.parse)
+            yield response.follow(next_page_url, self.parse, dont_filter=True)
 
     def get_element_images(self, response):
         images = [i.attrib["style"] for i in response.xpath("//div[@style]")]
@@ -111,11 +109,22 @@ class Scrapper(scrapy.Spider):
                       day=day, month=month, year=year, hour=hour, minute=minute, lat=lat, lon=lon,
                       price_scale=price_scale)
         self.n_items += 1
+        self.logger.info("Parsed element in page %s" % response._url)
         self.callback(result)
 
 
-def main(url, out_file, echelle, max_page):
-    process = CrawlerProcess(dict(LOG_LEVEL="INFO", **headers))
+def main(url, out_file, echelle, max_page, use_proxy):
+    settings = dict(LOG_LEVEL="INFO", CONCURRENT_REQUESTS=100, **headers)
+    if use_proxy:
+        settings["DOWNLOADER_MIDDLEWARES"] = {
+            'scrapy.downloadermiddlewares.retry.RetryMiddleware': 90,
+            'proxy.RandomProxy': 100,
+            'scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware': 110,
+        }
+        settings.update(dict(PROXY_LIST='proxylist.txt', PROXY_MODE=0, RETRY_ENABLED=True,
+                             RETRY_TIMES=10, RETRY_HTTP_CODES=[500, 503, 504, 400, 403, 404, 408]))
+
+    process = CrawlerProcess(settings)
 
     with KMLEncoder(out_file) as encoder:
         process.crawl(Scrapper, url, encoder, echelle, max_page)
@@ -131,6 +140,7 @@ if __name__ == '__main__':
                         help="Echelle de prix pour afficher le prix comme une couleur de point dans le KML",
                         default=None, type=lambda x: [int(i) for i in x.split(",")])
     parser.add_argument("-m", dest="max_page", help="Page max", default=None, type=int)
+    parser.add_argument("--use_proxy", "-p", action="store_true", help="Use tor proxy")
 
     args = parser.parse_args()
     main(**args.__dict__)

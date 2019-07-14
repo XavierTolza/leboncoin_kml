@@ -1,5 +1,4 @@
 numpy
-tqdm
 scrapy
 dotdict
 urllib3
