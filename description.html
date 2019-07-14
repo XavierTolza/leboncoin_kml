@@ -1,0 +1,6 @@
+<h2>{{item.price}} €</h2>
+<a href="{{item.url}}">{{item.url}}</a>
+{% for image in item.images %}
+<a href="{{image.url}}"><img src="{{image.url}}" width="180"></a>
+{% endfor %}
+<p>{{item.description}}</p>

@@ -1,0 +1,6 @@
+venv
+.idea
+*.kml
+*.csv
+__*__
+tmp.py
