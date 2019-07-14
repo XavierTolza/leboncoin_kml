@@ -114,7 +114,8 @@ class Scrapper(scrapy.Spider):
 
 
 def main(url, out_file, echelle, max_page, use_proxy):
-    settings = dict(LOG_LEVEL="INFO", CONCURRENT_REQUESTS=100, **headers)
+    settings = dict(LOG_LEVEL="INFO", CONCURRENT_REQUESTS=1000, CONCURRENT_REQUESTS_PER_DOMAIN=1000,
+                    CONCURRENT_REQUESTS_PER_IP=1000, CONCURRENT_ITEMS=1000, **headers)
     if use_proxy:
         settings["DOWNLOADER_MIDDLEWARES"] = {
             'scrapy.downloadermiddlewares.retry.RetryMiddleware': 90,
