@@ -11,7 +11,7 @@ from scrapy.crawler import CrawlerProcess
 from kml import KMLEncoder
 from postal_code_db import db
 from requests import http, headers
-from tools import supprime_accent
+from tools import supprime_accent, id_from_url
 
 logging.getLogger("scrapy").setLevel(logging.WARNING)
 logging.getLogger("scrapy.core.engine").setLevel(logging.WARNING)
@@ -20,8 +20,9 @@ logging.getLogger("scrapy.core.engine").setLevel(logging.WARNING)
 class Scrapper(scrapy.Spider):
     name = 'lbcscrapper'
 
-    def __init__(self, url, callback, prices_scale=None, max_page=None):
+    def __init__(self, url, callback, prices_scale=None, max_page=None, already_done=[]):
         super(Scrapper, self).__init__()
+        self.already_done = {id_from_url(url):url for url in already_done}
         self.max_page = max_page if max_page is not None else np.inf
         if prices_scale is not None:
             prices = np.sort(np.ravel(prices_scale))
@@ -48,8 +49,11 @@ class Scrapper(scrapy.Spider):
             attribs = dotdict(element.attrib)
             if "title" in attribs and "href" in attribs:
                 url = attribs.href
-                request = response.follow(url, self.parse_element)
-                yield request
+                if id_from_url(url) not in self.already_done:
+                    request = response.follow(url, self.parse_element)
+                    yield request
+                else:
+                    self.logger.info("Skipped %s" % url)
 
     def parse(self, response):
         for i in self.parse_page(response):
@@ -85,7 +89,7 @@ class Scrapper(scrapy.Spider):
         description = response.xpath('//div[text()="Description"]/following::div/div/div/span/text()')[0].get()
         title = response.xpath("//h1/text()")[0].get()
         url = response._url
-        id = url.split(".htm")[0].split("/")[-1]
+        id = id_from_url(url)
         prices = response.xpath('//div[@data-qa-id="adview_price"]/div/span')
         price = np.unique([int(i.css("::text").get().replace(" ", "")) for i in prices]).tolist()[0]
         loc = response.xpath('//div[@data-qa-id="adview_location_informations"]/span/text()')
@@ -128,7 +132,7 @@ def main(url, out_file, echelle, max_page, use_proxy):
     process = CrawlerProcess(settings)
 
     with KMLEncoder(out_file) as encoder:
-        process.crawl(Scrapper, url, encoder, echelle, max_page)
+        process.crawl(Scrapper, url, encoder, echelle, max_page, encoder.already_done)
         process.start()  # the script will block here until the crawling is finished
         print(encoder.n_items)
 

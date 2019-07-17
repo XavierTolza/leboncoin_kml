@@ -7,3 +7,8 @@ def supprime_accent(ligne):
         ligne = ligne.replace(accent[i], sans_accent[i])
         i += 1
     return ligne
+
+
+def id_from_url(url):
+    id = url.split(".htm")[0].split("/")[-1]
+    return id
