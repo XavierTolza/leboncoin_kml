@@ -100,7 +100,12 @@ class RandomProxy(object):
         else:
             log.debug('Proxy user pass not found')
         log.debug('Using proxy <%s>, %d proxies left' % (
-                proxy_address, len(self.proxies)))
+            proxy_address, len(self.proxies)))
+
+    def export_proxies(self):
+        with open(self.proxy_list, "w") as fp:
+            for i in self.proxies.keys():
+                fp.write(i + "\n")
 
     def process_exception(self, request, exception, spider):
         if 'proxy' not in request.meta:
@@ -116,3 +121,4 @@ class RandomProxy(object):
                 self.chosen_proxy = random.choice(list(self.proxies.keys()))
             log.info('Removing failed proxy <%s>, %d proxies left' % (
                 proxy, len(self.proxies)))
+            self.export_proxies()

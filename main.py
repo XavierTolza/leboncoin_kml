@@ -22,7 +22,7 @@ class Scrapper(scrapy.Spider):
 
     def __init__(self, url, callback, prices_scale=None, max_page=None, already_done=[]):
         super(Scrapper, self).__init__()
-        self.already_done = {id_from_url(url):url for url in already_done}
+        self.already_done = {id_from_url(url): url for url in already_done}
         self.max_page = max_page if max_page is not None else np.inf
         if prices_scale is not None:
             prices = np.sort(np.ravel(prices_scale))
@@ -45,15 +45,20 @@ class Scrapper(scrapy.Spider):
     def parse_page(self, response):
         self.logger.info("Parsing page %s" % response._url)
         elements = response.xpath('//div[@itemprop="priceSpecification"]/../../..')
-        for element in elements:
+        for i, element in enumerate(elements):
+            self.logger.debug("Creating request for element %i of page %s" % (i, response._url))
             attribs = dotdict(element.attrib)
-            if "title" in attribs and "href" in attribs:
+            if "title" in attribs and "href" in attribs and not self.stopping:
                 url = attribs.href
                 if id_from_url(url) not in self.already_done:
                     request = response.follow(url, self.parse_element)
                     yield request
                 else:
                     self.logger.info("Skipped %s" % url)
+
+    @property
+    def stopping(self):
+        return getattr(self, "closed", None)
 
     def parse(self, response):
         for i in self.parse_page(response):
@@ -65,7 +70,7 @@ class Scrapper(scrapy.Spider):
             current_page = int(r.findall(response._url)[0])
         except IndexError:
             current_page = 1
-        if current_page < self.max_page:
+        if current_page < self.max_page and not self.stopping:
             bottom_links = [i.attrib["href"] for i in response.xpath("//nav/div/ul/li/a")]
             page_number, bottom_link_index = zip(*[(int(i[0]), index)
                                                    for index, i in enumerate(r.findall(i) for i in bottom_links) if
@@ -113,12 +118,12 @@ class Scrapper(scrapy.Spider):
                       day=day, month=month, year=year, hour=hour, minute=minute, lat=lat, lon=lon,
                       price_scale=price_scale)
         self.n_items += 1
-        self.logger.info("Parsed element in page %s" % response._url)
         self.callback(result)
+        self.logger.info("Parsed element in page %s" % response._url)
 
 
 def main(url, out_file, echelle, max_page, use_proxy):
-    settings = dict(LOG_LEVEL="INFO", CONCURRENT_REQUESTS=1000, CONCURRENT_REQUESTS_PER_DOMAIN=1000,
+    settings = dict(LOG_LEVEL="DEBUG", CONCURRENT_REQUESTS=1000, CONCURRENT_REQUESTS_PER_DOMAIN=1000,
                     CONCURRENT_REQUESTS_PER_IP=1000, CONCURRENT_ITEMS=1000, **headers)
     if use_proxy:
         settings["DOWNLOADER_MIDDLEWARES"] = {
@@ -126,7 +131,8 @@ def main(url, out_file, echelle, max_page, use_proxy):
             'proxy.RandomProxy': 100,
             'scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware': 110,
         }
-        settings.update(dict(PROXY_LIST='proxylist.txt', PROXY_MODE=0, RETRY_ENABLED=True,
+        settings.update(dict(PROXY_LIST='proxylist.txt',
+                             PROXY_MODE=1, RETRY_ENABLED=True,
                              RETRY_TIMES=10, RETRY_HTTP_CODES=[500, 503, 504, 400, 403, 404, 408]))
 
     process = CrawlerProcess(settings)
