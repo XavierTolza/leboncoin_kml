@@ -5,7 +5,7 @@ import numpy as np
 import schedule as schedule
 from dotdict import dotdict
 
-from templates import get_template
+from leboncoin_kml.common import get_template
 from lxml import etree
 
 wrapper = u'<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2">%s</kml>'
