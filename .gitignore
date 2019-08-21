@@ -4,3 +4,4 @@ venv
 *.csv
 __*__
 tmp.py
+postal_code_db.csv

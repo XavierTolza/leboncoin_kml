@@ -1,10 +1,11 @@
 import logging
 from argparse import ArgumentParser
+from os import mkdir
+from os.path import abspath, dirname, join, isdir
 
 from scrapy.crawler import CrawlerProcess
 
 from leboncoin_kml.common import headers
-from leboncoin_kml.kml import KMLEncoder
 from leboncoin_kml.scrapper import LBCScrapper
 
 logging.getLogger("scrapy").setLevel(logging.WARNING)
@@ -24,12 +25,14 @@ def scrap(url, out_file, echelle, max_page, use_proxy):
                              PROXY_MODE=1, RETRY_ENABLED=True,
                              RETRY_TIMES=10, RETRY_HTTP_CODES=[500, 503, 504, 400, 403, 404, 408]))
 
+    images_folder = join(dirname(abspath(out_file)), "images")
+    if not isdir(images_folder):
+        mkdir(images_folder)
+
     process = CrawlerProcess(settings)
 
-    with KMLEncoder(out_file) as encoder:
-        process.crawl(LBCScrapper, url, encoder, echelle, max_page, encoder.already_done)
-        process.start()  # the script will block here until the crawling is finished
-        print(encoder.n_items)
+    process.crawl(LBCScrapper, url, out_file, images_folder, max_page)
+    process.start()  # the script will block here until the crawling is finished
 
 
 if __name__ == '__main__':
