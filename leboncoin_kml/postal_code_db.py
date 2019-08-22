@@ -1,11 +1,12 @@
 import pandas as pd
-from os.path import isfile
+from os.path import isfile, abspath, dirname, join
 
-from requests import get
+from leboncoin_kml.common import get
 
 url = "https://www.data.gouv.fr/fr/datasets/r/554590ab-ae62-40ac-8353-ee75162c05ee"
 
-filename = "postal_code_db.csv"
+filename = "assets/postal_code_db.csv"
+filename = join(dirname(abspath(__file__)), filename)
 if isfile(filename):
     db = pd.read_csv(filename).set_index("Unnamed: 0")
 else:
