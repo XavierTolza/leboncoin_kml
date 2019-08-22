@@ -1,15 +1,20 @@
 import json
 import re
 import tarfile
+from argparse import ArgumentParser
+from base64 import b64decode
 from contextlib import closing
 from io import BytesIO
 from os.path import abspath, isfile, basename
 from time import time
 
 from leboncoin_kml.common import encoding
+from leboncoin_kml.kml import KMLEncoder
 
 
 class Container(object):
+    open_mode = "a"
+
     def __init__(self, filename):
         self.filename = abspath(filename)
         self.tar = None
@@ -18,10 +23,10 @@ class Container(object):
     def open(self):
         if not isfile(self.filename):
             # Create file
-            self.tar = tarfile.open(self.filename, "w")
+            self.tar = tarfile.open(self.filename, self.open_mode)
             self.mkdir("images", "annonces")
         else:
-            self.tar = tarfile.open(self.filename, "a")
+            self.tar = tarfile.open(self.filename, self.open_mode)
             self.ids = {int(i): None for i in self.listdir("annonces")}
         pass
 
@@ -61,3 +66,35 @@ class Container(object):
             tarinfo.size = len(fobj.getvalue())
             tarinfo.mtime = time()
             self.tar.addfile(tarinfo, fileobj=fobj)
+
+    def get_record(self, id):
+        tar = self.tar
+        data = tar.extractfile("annonces/%i" % id).read()
+        data = json.loads(data.decode(encoding))
+        for field in "title,description".split(","):
+            data[field] = b64decode(bytes(data[field], encoding)).decode(encoding)
+        return data
+
+    def export_kml(self, out_file, price_scale):
+        with KMLEncoder(out_file, price_scale) as encoder:
+            for id in self.ids.keys():
+                record = self.get_record(id)
+                encoder.append(record)
+
+
+class ReadOnlyContainer(Container):
+    open_mode = "r"
+
+
+def encode_kml(src, out):
+    with ReadOnlyContainer(src) as c:
+        c.export_kml(out, (0, 1000))
+
+
+if __name__ == '__main__':
+    parser = ArgumentParser()
+    parser.add_argument("src")
+    parser.add_argument("out")
+    args = parser.parse_args()
+
+    encode_kml(**args.__dict__)

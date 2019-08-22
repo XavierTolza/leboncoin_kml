@@ -1,4 +1,5 @@
 import logging
+from os.path import join, dirname, abspath
 
 import jinja2
 import urllib3
@@ -12,8 +13,8 @@ http = urllib3.PoolManager(headers=headers)
 encoding = "utf-8"
 
 get = lambda *args, **kwargs: http.request("GET", *args, **kwargs)
-
-templateLoader = jinja2.FileSystemLoader(searchpath="./")
+template_folder = join(dirname(abspath(__file__)), "assets")
+templateLoader = jinja2.FileSystemLoader(searchpath=template_folder)
 templateEnv = jinja2.Environment(loader=templateLoader)
 
 
@@ -35,3 +36,8 @@ def supprime_accent(ligne):
 def id_from_url(url):
     id = url.split(".htm")[0].split("/")[-1]
     return int(id)
+
+
+# Disable scrapy logging
+logging.getLogger("scrapy").setLevel(logging.WARNING)
+logging.getLogger("scrapy.core.engine").setLevel(logging.WARNING)
