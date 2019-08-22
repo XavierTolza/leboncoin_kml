@@ -25,13 +25,9 @@ def scrap(url, out_file, echelle, max_page, use_proxy):
                              PROXY_MODE=1, RETRY_ENABLED=True,
                              RETRY_TIMES=10, RETRY_HTTP_CODES=[500, 503, 504, 400, 403, 404, 408]))
 
-    images_folder = join(dirname(abspath(out_file)), "images")
-    if not isdir(images_folder):
-        mkdir(images_folder)
-
     process = CrawlerProcess(settings)
 
-    process.crawl(LBCScrapper, url, out_file, images_folder, max_page)
+    process.crawl(LBCScrapper, url, out_file, max_page)
     process.start()  # the script will block here until the crawling is finished
 
 

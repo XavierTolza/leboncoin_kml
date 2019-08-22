@@ -9,6 +9,7 @@ from dotdict import dotdict
 from pandas import read_csv, DataFrame, Series
 from scrapy import signals
 
+from leboncoin_kml.container import Container
 from leboncoin_kml.postal_code_db import db
 from scrapy.xlib.pydispatch import dispatcher
 from .common import supprime_accent, id_from_url, http, encoding
@@ -27,18 +28,23 @@ class Image(object):
         return self.filename.split(".")[0]
 
     def to_file(self, folder):
-        data = http.request("GET", self.url, preload_content=False)
+        img_bytes = self.bytes
         with open(join(folder, self.filename), "wb") as fp:
-            fp.write(data.read())
+            fp.write(img_bytes)
+
+    @property
+    def bytes(self):
+        data = http.request("GET", self.url, preload_content=False)
+        img_bytes = data.read()
+        return img_bytes
 
 
 class LBCScrapper(scrapy.Spider):
     name = 'lbcscrapper'
 
-    def __init__(self, url, csvfile, images_folder=None, max_page=None):
+    def __init__(self, url, filename, max_page=None):
         super(LBCScrapper, self).__init__()
-        self.images_folder = images_folder
-        self.csvfile = csvfile
+        self.filename = filename
         self.max_page = max_page if max_page is not None else np.inf
         self.start_urls = [url]
 
@@ -48,21 +54,13 @@ class LBCScrapper(scrapy.Spider):
             re.compile("https://img\d.leboncoin.fr/ad-(image|thumb|large)/[0-9a-f]+.(jpg|png)")
         ]
 
-        self.container = DataFrame()
-        self.load_container()
+        self.container = Container(filename)
+        self.container.open()
         dispatcher.connect(self.spider_closed, signals.spider_closed)
 
     @property
     def stopping(self):
         return getattr(self, "closed", None)
-
-    def load_container(self):
-        if isfile(self.csvfile):
-            self.container = read_csv(self.csvfile).set_index("Index")
-
-    def save_container(self):
-        self.container.index.name = "Index"
-        self.container.to_csv(self.csvfile)
 
     def parse_page(self, response):
         self.logger.info("Parsing page %s" % response._url)
@@ -72,7 +70,7 @@ class LBCScrapper(scrapy.Spider):
             attribs = dotdict(element.attrib)
             if "title" in attribs and "href" in attribs and not self.stopping:
                 url = attribs.href
-                if len(self.container) == 0 or id_from_url(url) not in self.container["id"].values:
+                if id_from_url(url) not in self.container.ids:
                     request = response.follow(url, self.parse_element)
                     yield request
                 else:
@@ -106,6 +104,10 @@ class LBCScrapper(scrapy.Spider):
         images = [Image(i) for i in images]
         return images
 
+    @staticmethod
+    def b64encode(data):
+        return b64encode(bytes(data, encoding)).decode(encoding)
+
     def parse_element(self, response):
         # Extract info
         images = self.get_element_images(response)
@@ -131,18 +133,18 @@ class LBCScrapper(scrapy.Spider):
         day, month, year = [int(i) for i in date.split("/")]
         category = url.split(".fr/")[1].split("/")[0]
 
-        # Save images if needed
-        if isdir(self.images_folder):
-            for im in images:  # type: Image
-                im.to_file(self.images_folder)
-
         # Append info
-        result = dict(id=id, title=title, url=url, images=b64encode(bytes(",".join([i.url for i in images]), encoding)),
-                      description=b64encode(bytes(description, encoding)), price=price, city=city,
+        images_b64 = self.b64encode(",".join([i.url for i in images]))
+        result = dict(id=id, title=self.b64encode(title), url=url, images=images_b64,
+                      description=self.b64encode(description), price=price, city=city,
                       postal_code=postal_code, category=category, day=day, month=month, year=year, hour=hour,
                       minute=minute, lat=lat, lon=lon)
-        self.container = self.container.append(Series(result), ignore_index=True)
+
+        self.container.add_record(**result)
+        for im in images:
+            self.container.add_image(im.filename, im.bytes)
+
         self.logger.info("Parsed element in page %s" % response._url)
 
     def spider_closed(self, spider):
-        self.save_container()
+        self.container.close()

@@ -34,4 +34,4 @@ def supprime_accent(ligne):
 
 def id_from_url(url):
     id = url.split(".htm")[0].split("/")[-1]
-    return id
+    return int(id)
