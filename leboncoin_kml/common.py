@@ -11,10 +11,11 @@ headers = {
 }
 http = urllib3.PoolManager(headers=headers)
 encoding = "utf-8"
+N_PROXY=100
 
 get = lambda *args, **kwargs: http.request("GET", *args, **kwargs)
-template_folder = join(dirname(abspath(__file__)), "assets")
-templateLoader = jinja2.FileSystemLoader(searchpath=template_folder)
+assets_folder = join(dirname(abspath(__file__)), "assets")
+templateLoader = jinja2.FileSystemLoader(searchpath=assets_folder)
 templateEnv = jinja2.Environment(loader=templateLoader)
 
 

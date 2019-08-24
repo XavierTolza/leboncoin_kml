@@ -14,6 +14,7 @@ from scrapy.xlib.pydispatch import dispatcher
 from leboncoin_kml.container import Container
 from leboncoin_kml.postal_code_db import db
 from leboncoin_kml.common import supprime_accent, id_from_url, http, encoding, headers
+from leboncoin_kml.proxy import proxy_list_file, Mode
 
 
 class Image(object):
@@ -78,25 +79,33 @@ class LBCScrapper(scrapy.Spider):
                     self.logger.info("Skipped %s" % url)
 
     def parse(self, response):
+        self.logger.debug("Started parsing")
         for i in self.parse_page(response):
             yield i
 
         # Find next page
-        r = re.compile(".+/p-(\d+)")
+        self.logger.debug("Finding next page")
+        r = re.compile(".+(&|/)p(age)?(-|=)(\d+)")
         try:
-            current_page = int(r.findall(response._url)[0])
+            current_page = int(r.findall(response._url)[0][-1])
         except IndexError:
             current_page = 1
         if current_page < self.max_page and not self.stopping:
             bottom_links = [i.attrib["href"] for i in response.xpath("//nav/div/ul/li/a")]
             bottom_links = [i for i in bottom_links if len(i)]
             page_number = [(r.findall(i), i) for i in bottom_links]
-            links = [(int(i[0]), link) for i, link in page_number if len(i)]
+            page_number = [(i[0][0], i[1]) for i in page_number if len(i[0])]
+            links = [(int(i[-1]), link) for i, link in page_number if len(i)]
+            if len(links) == 0:
+                raise ValueError("Failed to find links in the page")
             page_number, links = zip(*links)
             page_number = np.array(page_number)
             page_number[page_number <= current_page] = np.max(page_number) + 10
             next_page_url = links[np.argmin(page_number)]
-            yield response.follow(next_page_url, self.parse, dont_filter=True)
+            self.logger.debug("Going to next page: %s" % next_page_url)
+            request = response.follow(next_page_url, self.parse)
+            yield request
+        self.logger.debug("Spider finished")
 
     def get_element_images(self, response):
         images = [i.attrib["style"] for i in response.xpath("//div[@style]")]
@@ -152,10 +161,13 @@ class LBCScrapper(scrapy.Spider):
 
 def scrap(url, out_file, max_page, use_proxy, proxylist):
     if proxylist is None:
-        proxylist = join(dirname(abspath(__file__)), 'assets/proxylist.txt')
+        proxylist = proxy_list_file
 
-    settings = dict(LOG_LEVEL="DEBUG", CONCURRENT_REQUESTS=1000, CONCURRENT_REQUESTS_PER_DOMAIN=1000,
-                    CONCURRENT_REQUESTS_PER_IP=1000, CONCURRENT_ITEMS=1000, **headers)
+    n_concurrent_requests = 1000
+    settings = dict(LOG_LEVEL="DEBUG", CONCURRENT_REQUESTS=n_concurrent_requests,
+                    CONCURRENT_REQUESTS_PER_DOMAIN=n_concurrent_requests,
+                    CONCURRENT_REQUESTS_PER_IP=n_concurrent_requests,
+                    CONCURRENT_ITEMS=n_concurrent_requests, **headers)
     if use_proxy:
         if not isfile(proxylist):
             raise ValueError("Proxy list %s not found" % proxylist)
@@ -166,8 +178,11 @@ def scrap(url, out_file, max_page, use_proxy, proxylist):
             'scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware': 110,
         }
         settings.update(dict(PROXY_LIST=proxylist,
-                             PROXY_MODE=1, RETRY_ENABLED=True,
-                             RETRY_TIMES=10, RETRY_HTTP_CODES=[500, 503, 504, 400, 403, 404, 408]))
+                             PROXY_MODE=Mode.RANDOMIZE_PROXY_ONCE,
+                             RETRY_ENABLED=True,
+                             DOWNLOAD_TIMEOUT=10,
+                             RETRY_TIMES=10,
+                             RETRY_HTTP_CODES=[500, 503, 504, 400, 403, 404, 408]))
 
     process = CrawlerProcess(settings)
     process.crawl(LBCScrapper, url, out_file, max_page)

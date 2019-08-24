@@ -17,17 +17,51 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
-
+import asyncio
 import re
 import random
 import base64
 import logging
+from os.path import isfile, join
+
+from proxybroker import Broker
+from tqdm import tqdm
+
+from leboncoin_kml.common import assets_folder, N_PROXY
 
 log = logging.getLogger('scrapy.proxies')
 
 
 class Mode:
     RANDOMIZE_PROXY_EVERY_REQUESTS, RANDOMIZE_PROXY_ONCE, SET_CUSTOM_PROXY = range(3)
+
+
+async def save_proxy_file(proxies, filename):
+    """Save proxies to a file."""
+    bar = tqdm(total=N_PROXY)
+    with open(filename, 'w') as f:
+        while True:
+            proxy = await proxies.get()
+            if proxy is None:
+                break
+            proto = 'https' if 'HTTPS' in proxy.types else 'http'
+            row = '%s://%s:%d\n' % (proto, proxy.host, proxy.port)
+            f.write(row)
+            bar.update()
+
+
+# If proxy file not found, download it
+proxy_list_file = "proxylist.txt"
+if not isfile(proxy_list_file):
+    print("Downloading proxy list, please wait")
+    proxies = asyncio.Queue()
+    broker = Broker(proxies)
+    tasks = asyncio.gather(
+        broker.find(types=['HTTP'], limit=N_PROXY),
+        save_proxy_file(proxies, filename=proxy_list_file),
+    )
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(tasks)
 
 
 class RandomProxy(object):
@@ -97,8 +131,8 @@ class RandomProxy(object):
         if proxy_user_pass:
             basic_auth = 'Basic ' + base64.b64encode(proxy_user_pass.encode()).decode()
             request.headers['Proxy-Authorization'] = basic_auth
-        else:
-            log.debug('Proxy user pass not found')
+        # else:
+        #    log.debug('Proxy user pass not found')
         log.debug('Using proxy <%s>, %d proxies left' % (
             proxy_address, len(self.proxies)))
 
@@ -108,8 +142,7 @@ class RandomProxy(object):
                 fp.write(i + "\n")
 
     def process_exception(self, request, exception, spider):
-        if 'proxy' not in request.meta:
-            return
+        log.warning("Got error %s for request %s" % (exception, request.url))
         if self.mode == Mode.RANDOMIZE_PROXY_EVERY_REQUESTS or self.mode == Mode.RANDOMIZE_PROXY_ONCE:
             proxy = request.meta['proxy']
             try:
