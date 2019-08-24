@@ -65,14 +65,16 @@ class LBCScrapper(scrapy.Spider):
         return getattr(self, "closed", None)
 
     def parse_page(self, response):
-        self.logger.info("Parsing page %s" % response._url)
+        page_url = response._url
+        self.logger.info("Parsing page %s" % page_url)
         elements = response.xpath('//div[@itemprop="priceSpecification"]/../../..')
         for i, element in enumerate(elements):
-            self.logger.debug("Creating request for element %i of page %s" % (i, response._url))
+            self.logger.debug("Creating request for element %i of page %s" % (i, page_url))
             attribs = dotdict(element.attrib)
             if "title" in attribs and "href" in attribs and not self.stopping:
                 url = attribs.href
                 if id_from_url(url) not in self.container.ids:
+                    self.logger.debug("Found element %s in page %s : creating request." % (url, page_url))
                     request = response.follow(url, self.parse_element)
                     yield request
                 else:
