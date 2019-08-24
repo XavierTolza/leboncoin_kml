@@ -17,11 +17,19 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
-
+import asyncio
 import re
 import random
 import base64
 import logging
+from asyncio import sleep
+from queue import Queue
+from threading import Thread
+from urllib.parse import urlparse
+
+import aiohttp
+from proxybroker import ProxyPool, Broker
+from proxybroker.errors import NoProxyError
 
 log = logging.getLogger('scrapy.proxies')
 
@@ -30,10 +38,97 @@ class Mode:
     RANDOMIZE_PROXY_EVERY_REQUESTS, RANDOMIZE_PROXY_ONCE, SET_CUSTOM_PROXY = range(3)
 
 
+class ProxyQueue(Thread):
+    def __init__(self, n_items=10):
+        super(ProxyQueue, self).__init__()
+        self.queue = Queue(n_items)
+        self.stop = False
+
+    async def fetch(self, url, proxy_pool, timeout, loop):
+        resp, proxy = None, None
+        while self.queue.full():
+            await sleep(5)
+        if self.stop:
+            return
+        try:
+            proxy = await proxy_pool.get(scheme=urlparse(url).scheme)
+            proxy_url = 'http://%s:%d' % (proxy.host, proxy.port)
+            _timeout = aiohttp.ClientTimeout(total=timeout)
+            async with aiohttp.ClientSession(
+                    timeout=_timeout, loop=loop
+            ) as session, session.get(url, proxy=proxy_url) as response:
+                resp = await response.text()
+        except (
+                aiohttp.errors.ClientOSError,
+                aiohttp.errors.ClientResponseError,
+                aiohttp.errors.ServerDisconnectedError,
+                asyncio.TimeoutError,
+                NoProxyError,
+        ) as e:
+            print('Error!\nURL: %s;\nError: %r\n', url, e)
+        finally:
+            if proxy:
+                proxy_pool.put(proxy)
+                self.queue.put()
+            return (url, resp)
+
+    async def get_pages(self, urls, proxy_pool, timeout=10, loop=None):
+        tasks = [self.fetch(url, proxy_pool, timeout, loop) for url in urls]
+        for task in asyncio.as_completed(tasks):
+            url, content = await task
+            print('%s\nDone!\nURL: %s;\nContent: %s' % ('-' * 20, url, content))
+
+    def run(self) -> None:
+        loop = asyncio.get_event_loop()
+
+        proxies = asyncio.Queue(loop=loop)
+        proxy_pool = ProxyPool(proxies)
+
+        judges = [
+            'http://httpbin.org/get?show_env',
+            'https://httpbin.org/get?show_env',
+        ]
+
+        providers = [
+            'http://www.proxylists.net/',
+            'http://ipaddress.com/proxy-list/',
+            'https://www.sslproxies.org/',
+        ]
+
+        broker = Broker(
+            proxies,
+            timeout=8,
+            max_conn=200,
+            max_tries=3,
+            verify_ssl=False,
+            judges=judges,
+            providers=providers,
+            loop=loop,
+        )
+
+        types = [('HTTP', ('Anonymous', 'High'))]
+        countries = ['US', 'UK', 'DE', 'FR']
+
+        urls = [
+            'http://httpbin.org/get',
+            'http://httpbin.org/redirect/1',
+            'http://httpbin.org/anything',
+            'http://httpbin.org/status/404',
+        ]
+
+        tasks = asyncio.gather(
+            broker.find(types=types, countries=countries, strict=True, limit=10),
+            self.get_pages(urls, proxy_pool, loop=loop),
+        )
+        loop.run_until_complete(tasks)
+
+
 class RandomProxy(object):
     def __init__(self, settings):
         self.mode = settings.get('PROXY_MODE')
-        self.proxy_list = settings.get('PROXY_LIST')
+        self.proxy_finder = pf = ProxyQueue()
+        pf.start()
+
         self.chosen_proxy = ''
 
         if self.mode == Mode.RANDOMIZE_PROXY_EVERY_REQUESTS or self.mode == Mode.RANDOMIZE_PROXY_ONCE:
@@ -83,29 +178,16 @@ class RandomProxy(object):
             if request.meta["exception"] is False:
                 return
         request.meta["exception"] = False
-        if len(self.proxies) == 0:
-            raise ValueError('All proxies are unusable, cannot proceed')
 
         if self.mode == Mode.RANDOMIZE_PROXY_EVERY_REQUESTS:
-            proxy_address = random.choice(list(self.proxies.keys()))
+            if self.proxy_finder.queue.empty():
+                raise ValueError('All proxies are unusable, cannot proceed')
+            self.chosen_proxy = proxy_address = self.proxy_finder.queue.get()
         else:
             proxy_address = self.chosen_proxy
 
-        proxy_user_pass = self.proxies[proxy_address]
-
         request.meta['proxy'] = proxy_address
-        if proxy_user_pass:
-            basic_auth = 'Basic ' + base64.b64encode(proxy_user_pass.encode()).decode()
-            request.headers['Proxy-Authorization'] = basic_auth
-        else:
-            log.debug('Proxy user pass not found')
-        log.debug('Using proxy <%s>, %d proxies left' % (
-            proxy_address, len(self.proxies)))
-
-    def export_proxies(self):
-        with open(self.proxy_list, "w") as fp:
-            for i in self.proxies.keys():
-                fp.write(i + "\n")
+        log.debug('Using proxy <%s>' % (proxy_address))
 
     def process_exception(self, request, exception, spider):
         if 'proxy' not in request.meta:
@@ -121,4 +203,3 @@ class RandomProxy(object):
                 self.chosen_proxy = random.choice(list(self.proxies.keys()))
             log.info('Removing failed proxy <%s>, %d proxies left' % (
                 proxy, len(self.proxies)))
-            self.export_proxies()
