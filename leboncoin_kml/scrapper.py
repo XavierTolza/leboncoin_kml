@@ -150,23 +150,16 @@ class LBCScrapper(scrapy.Spider):
         self.container.close()
 
 
-def scrap(url, out_file, max_page, use_proxy, proxylist):
-    if proxylist is None:
-        proxylist = join(dirname(abspath(__file__)), 'assets/proxylist.txt')
-
+def scrap(url, out_file, max_page, use_proxy):
     settings = dict(LOG_LEVEL="DEBUG", CONCURRENT_REQUESTS=1000, CONCURRENT_REQUESTS_PER_DOMAIN=1000,
                     CONCURRENT_REQUESTS_PER_IP=1000, CONCURRENT_ITEMS=1000, **headers)
     if use_proxy:
-        if not isfile(proxylist):
-            raise ValueError("Proxy list %s not found" % proxylist)
-
         settings["DOWNLOADER_MIDDLEWARES"] = {
             'scrapy.downloadermiddlewares.retry.RetryMiddleware': 90,
             'proxy.RandomProxy': 100,
             'scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware': 110,
         }
-        settings.update(dict(PROXY_LIST=proxylist,
-                             PROXY_MODE=1, RETRY_ENABLED=True,
+        settings.update(dict(PROXY_MODE=1, RETRY_ENABLED=True,
                              RETRY_TIMES=10, RETRY_HTTP_CODES=[500, 503, 504, 400, 403, 404, 408]))
 
     process = CrawlerProcess(settings)
@@ -181,7 +174,6 @@ if __name__ == '__main__':
                         default="out.tar")
     parser.add_argument("-m", dest="max_page", help="Page max à atteindre", default=None, type=int)
     parser.add_argument("--use_proxy", "-p", action="store_true", help="Utilisation d'une liste de proxy")
-    parser.add_argument("--proxylist", default=None, help="Specifier une liste de proxy manuelle")
 
     args = parser.parse_args()
     scrap(**args.__dict__)

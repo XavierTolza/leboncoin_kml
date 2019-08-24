@@ -79,7 +79,7 @@ class ProxyQueue(Thread):
             print('%s\nDone!\nURL: %s;\nContent: %s' % ('-' * 20, url, content))
 
     def run(self) -> None:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.new_event_loop()
 
         proxies = asyncio.Queue(loop=loop)
         proxy_pool = ProxyPool(proxies)
@@ -128,32 +128,12 @@ class RandomProxy(object):
         self.mode = settings.get('PROXY_MODE')
         self.proxy_finder = pf = ProxyQueue()
         pf.start()
+        while pf.queue.empty():
+            sleep(1)
 
         self.chosen_proxy = ''
 
-        if self.mode == Mode.RANDOMIZE_PROXY_EVERY_REQUESTS or self.mode == Mode.RANDOMIZE_PROXY_ONCE:
-            if self.proxy_list is None:
-                raise KeyError('PROXY_LIST setting is missing')
-            self.proxies = {}
-            fin = open(self.proxy_list)
-            try:
-                for line in fin.readlines():
-                    parts = re.match('(\w+://)([^:]+?:[^@]+?@)?(.+)', line.strip())
-                    if not parts:
-                        continue
-
-                    # Cut trailing @
-                    if parts.group(2):
-                        user_pass = parts.group(2)[:-1]
-                    else:
-                        user_pass = ''
-
-                    self.proxies[parts.group(1) + parts.group(3)] = user_pass
-            finally:
-                fin.close()
-            if self.mode == Mode.RANDOMIZE_PROXY_ONCE:
-                self.chosen_proxy = random.choice(list(self.proxies.keys()))
-        elif self.mode == Mode.SET_CUSTOM_PROXY:
+        if self.mode == Mode.SET_CUSTOM_PROXY:
             custom_proxy = settings.get('CUSTOM_PROXY')
             self.proxies = {}
             parts = re.match('(\w+://)([^:]+?:[^@]+?@)?(.+)', custom_proxy.strip())
@@ -179,7 +159,7 @@ class RandomProxy(object):
                 return
         request.meta["exception"] = False
 
-        if self.mode == Mode.RANDOMIZE_PROXY_EVERY_REQUESTS:
+        if self.mode == Mode.RANDOMIZE_PROXY_EVERY_REQUESTS or len(self.chosen_proxy) == 0:
             if self.proxy_finder.queue.empty():
                 raise ValueError('All proxies are unusable, cannot proceed')
             self.chosen_proxy = proxy_address = self.proxy_finder.queue.get()
