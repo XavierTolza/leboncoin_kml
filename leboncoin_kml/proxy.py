@@ -136,6 +136,14 @@ class RandomProxy(object):
         request.meta["exception"] = False
         self.set_proxy_on_request(request)
 
+    def process_response(self, request, response, spider):
+        status = response.status
+        if status != 200:
+            # Request failed, resheduling
+            newrequest = self.process_exception(request, "Invalid status code: %i" % status, spider)
+            return newrequest
+        return response
+
     def export_proxies(self):
         with lock:
             with open(self.proxy_list, "w") as fp:
