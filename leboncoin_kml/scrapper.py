@@ -169,19 +169,21 @@ def scrap(url, out_file, max_page, use_proxy, proxylist):
     settings = dict(LOG_LEVEL="DEBUG", CONCURRENT_REQUESTS=n_concurrent_requests,
                     CONCURRENT_REQUESTS_PER_DOMAIN=n_concurrent_requests,
                     CONCURRENT_REQUESTS_PER_IP=n_concurrent_requests,
-                    CONCURRENT_ITEMS=n_concurrent_requests, **headers)
+                    CONCURRENT_ITEMS=n_concurrent_requests,
+                    LOG_STDOUT=True,
+                    **headers)
     if use_proxy:
         if not isfile(proxylist):
             raise ValueError("Proxy list %s not found" % proxylist)
 
         settings["DOWNLOADER_MIDDLEWARES"] = {
-            'scrapy.downloadermiddlewares.retry.RetryMiddleware': 90,
+            # 'scrapy.downloadermiddlewares.retry.RetryMiddleware': 90,
             'proxy.RandomProxy': 100,
-            'scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware': 110,
+            # 'scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware': 110,
         }
         settings.update(dict(PROXY_LIST=proxylist,
                              PROXY_MODE=Mode.RANDOMIZE_PROXY_ONCE,
-                             RETRY_ENABLED=True,
+                             RETRY_ENABLED=False,
                              DOWNLOAD_TIMEOUT=10,
                              RETRY_TIMES=10,
                              RETRY_HTTP_CODES=[500, 503, 504, 400, 403, 404, 408]))
