@@ -2,6 +2,7 @@ import difflib
 import re
 from argparse import ArgumentParser
 from base64 import b64encode
+from multiprocessing import Lock
 from os.path import isfile, join, dirname, abspath
 
 import numpy as np
@@ -81,7 +82,6 @@ class LBCScrapper(scrapy.Spider):
                     self.logger.info("Skipped %s" % url)
 
     def parse(self, response):
-        self.logger.debug("Started parsing")
         for i in self.parse_page(response):
             yield i
 
@@ -105,7 +105,7 @@ class LBCScrapper(scrapy.Spider):
             page_number[page_number <= current_page] = np.max(page_number) + 10
             next_page_url = links[np.argmin(page_number)]
             self.logger.debug("Going to next page: %s" % next_page_url)
-            request = response.follow(next_page_url, self.parse)
+            request = response.follow(next_page_url, self.parse_page())
             yield request
         self.logger.debug("Spider finished")
 
@@ -179,6 +179,7 @@ def scrap(url, out_file, max_page, use_proxy, proxylist):
         settings["DOWNLOADER_MIDDLEWARES"] = {
             # 'scrapy.downloadermiddlewares.retry.RetryMiddleware': 90,
             'proxy.RandomProxy': 100,
+            'scrapy.spidermiddlewares.httperror.HttpErrorMiddleware': None,
             # 'scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware': 110,
         }
         settings.update(dict(PROXY_LIST=proxylist,

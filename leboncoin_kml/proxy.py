@@ -22,6 +22,7 @@ import re
 import random
 import base64
 import logging
+from multiprocessing import Lock
 from os.path import isfile, join
 
 from proxybroker import Broker
@@ -63,8 +64,11 @@ if not isfile(proxy_list_file):
     loop = asyncio.get_event_loop()
     loop.run_until_complete(tasks)
 
+lock = Lock()
+
 
 class RandomProxy(object):
+
     def __init__(self, settings):
         self.mode = settings.get('PROXY_MODE')
         self.max_retry_times = settings.getint('RETRY_TIMES')
@@ -113,14 +117,15 @@ class RandomProxy(object):
         return cls(crawler.settings)
 
     def set_proxy_on_request(self, request, force_change=False):
-        if len(self.proxies) == 0:
-            raise ValueError('All proxies are unusable, cannot proceed')
+        with lock:
+            if len(self.proxies) == 0:
+                raise ValueError('All proxies are unusable, cannot proceed')
 
-        if self.mode == Mode.RANDOMIZE_PROXY_EVERY_REQUESTS or len(self.chosen_proxy) < 3 or force_change:
-            proxy_address = self.chosen_proxy = random.choice(list(self.proxies.keys()))
-            log.debug('Using proxy <%s>, %d proxies left' % (proxy_address, len(self.proxies)))
-        else:
-            proxy_address = self.chosen_proxy
+            if self.mode == Mode.RANDOMIZE_PROXY_EVERY_REQUESTS or len(self.chosen_proxy) < 3 or force_change:
+                proxy_address = self.chosen_proxy = random.choice(list(self.proxies.keys()))
+                log.debug('Using proxy <%s>, %d proxies left' % (proxy_address, len(self.proxies)))
+            else:
+                proxy_address = self.chosen_proxy
         request.meta['proxy'] = proxy_address
 
     def process_request(self, request, spider):
@@ -132,9 +137,10 @@ class RandomProxy(object):
         self.set_proxy_on_request(request)
 
     def export_proxies(self):
-        with open(self.proxy_list, "w") as fp:
-            for i in self.proxies.keys():
-                fp.write(i + "\n")
+        with lock:
+            with open(self.proxy_list, "w") as fp:
+                for i in self.proxies.keys():
+                    fp.write(i + "\n")
 
     def process_exception(self, request, exception, spider):
         log.warning("Got error %s for request %s" % (exception, request.url))
@@ -142,14 +148,16 @@ class RandomProxy(object):
         # Remove failed proxy from list
         if self.mode == Mode.RANDOMIZE_PROXY_EVERY_REQUESTS or self.mode == Mode.RANDOMIZE_PROXY_ONCE:
             proxy = request.meta['proxy']
-            try:
-                del self.proxies[proxy]
-            except KeyError:
-                pass
+            with lock:
+                try:
+                    del self.proxies[proxy]
+                except KeyError:
+                    pass
+                n_proxies_left = len(self.proxies)
             self.chosen_proxy = ''
             request.meta["exception"] = True
             log.info('Removing failed proxy <%s>, %d proxies left' % (
-                proxy, len(self.proxies)))
+                proxy, n_proxies_left))
             self.export_proxies()
 
         # Retry with new proxy
@@ -162,6 +170,7 @@ class RandomProxy(object):
             retryreq.meta['retry_times'] = retries
             retryreq.dont_filter = True
             self.set_proxy_on_request(request, force_change=True)
-            return retryreq
+            res = retryreq
         else:
             raise ValueError("Request %s failed too much!" % request.url)
+        return res
