@@ -1,3 +1,6 @@
+#!python3
+# -*- coding: utf-8 -*-
+# coding=utf-8
 import difflib
 import re
 from argparse import ArgumentParser
