@@ -31,6 +31,7 @@ from tqdm import tqdm
 from leboncoin_kml.common import assets_folder, N_PROXY
 
 log = logging.getLogger('scrapy.proxies')
+logging.getLogger('proxybroker').setLevel(logging.WARNING)
 
 
 class Mode:
