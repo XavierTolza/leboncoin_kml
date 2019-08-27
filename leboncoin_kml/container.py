@@ -26,7 +26,10 @@ class Container(object):
             self.tar = tarfile.open(self.filename, self.open_mode)
             self.mkdir("images", "annonces")
         else:
-            self.tar = tarfile.open(self.filename, self.open_mode)
+            try:
+                self.tar = tarfile.open(self.filename, self.open_mode)
+            except tarfile.ReadError as e:
+                raise tarfile.ReadError("Impossible to open archive %s: %s" % (self.filename, str(e)))
             self.ids = {int(i): None for i in self.listdir("annonces")}
         pass
 
