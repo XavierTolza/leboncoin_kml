@@ -38,36 +38,39 @@ class Mode:
     RANDOMIZE_PROXY_EVERY_REQUESTS, RANDOMIZE_PROXY_ONCE, SET_CUSTOM_PROXY = range(3)
 
 
-async def save_proxy_file(proxies, filename):
+async def save_proxy_file(proxies, res):
     """Save proxies to a file."""
     bar = tqdm(total=N_PROXY)
-    with open(filename, 'w') as f:
-        while True:
-            proxy = await proxies.get()
-            if proxy is None:
-                break
-            proto = 'https' if 'HTTPS' in proxy.types else 'http'
-            row = '%s://%s:%d\n' % (proto, proxy.host, proxy.port)
-            f.write(row)
-            bar.update()
+    while True:
+        proxy = await proxies.get()
+        if proxy is None:
+            break
+        proto = 'https' if 'HTTPS' in proxy.types else 'http'
+        row = '%s://%s:%d\n' % (proto, proxy.host, proxy.port)
+        res.append(row)
+        bar.update()
 
 
-def download_proxy_file(filename):
+def download_proxy_file(res):
     print("Downloading proxy list, please wait")
     proxies = asyncio.Queue()
     broker = Broker(proxies)
     tasks = asyncio.gather(
         broker.find(types=['HTTP'], limit=N_PROXY),
-        save_proxy_file(proxies, filename=filename),
+        save_proxy_file(proxies, res),
     )
     loop = asyncio.get_event_loop()
     loop.run_until_complete(tasks)
 
 
 # If proxy file not found, download it
-proxy_list_file = join(dirname(abspath(__file__)), "proxylist.txt")
+proxy_list_file = join(dirname(abspath(__file__)), "assets/proxylist.txt")
 if not isfile(proxy_list_file):
-    download_proxy_file(proxy_list_file)
+    res = []
+    download_proxy_file(res)
+    with open(proxy_list_file,"w") as fp:
+        for i in res:
+            fp.write(i)
 
 lock = Lock()
 
@@ -108,19 +111,7 @@ class RandomProxy(object):
             if self.mode == Mode.RANDOMIZE_PROXY_ONCE:
                 self.chosen_proxy = random.choice(list(self.proxies.keys()))
         elif self.mode == Mode.SET_CUSTOM_PROXY:
-            custom_proxy = self.settings.get('CUSTOM_PROXY')
-            self.proxies = {}
-            parts = re.match('(\w+://)([^:]+?:[^@]+?@)?(.+)', custom_proxy.strip())
-            if not parts:
-                raise ValueError('CUSTOM_PROXY is not well formatted')
-
-            if parts.group(2):
-                user_pass = parts.group(2)[:-1]
-            else:
-                user_pass = ''
-
-            self.proxies[parts.group(1) + parts.group(3)] = user_pass
-            self.chosen_proxy = parts.group(1) + parts.group(3)
+            raise NotImplementedError("Custom proxy not supported")
 
     @classmethod
     def from_crawler(cls, crawler):

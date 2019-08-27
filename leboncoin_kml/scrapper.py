@@ -217,7 +217,7 @@ def scrap(url, out_file, max_page, use_proxy, proxylist, debug=False):
                              PROXY_MODE=Mode.RANDOMIZE_PROXY_ONCE,
                              RETRY_ENABLED=False,
                              HTTPERROR_ALLOW_ALL=False,
-                             DOWNLOAD_TIMEOUT=4,
+                             DOWNLOAD_TIMEOUT=2,
                              RETRY_TIMES=20,
                              RETRY_HTTP_CODES=[500, 503, 504, 400, 403, 404, 408]))
 
