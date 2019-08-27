@@ -138,11 +138,15 @@ class RandomProxy(object):
 
     def process_response(self, request, response, spider):
         status = response.status
-        if status != 200:
-            # Request failed, resheduling
-            newrequest = self.process_exception(request, "Invalid status code: %i" % status, spider)
-            return newrequest
-        return response
+        if status == 200:
+            return response
+        else:
+            if (status // 100) == 4:
+                # Request failed, resheduling
+                newrequest = self.process_exception(request, "Invalid status code: %i" % status, spider)
+                return newrequest
+            else:
+                raise ValueError("Found incorrect error code: %i" % status)
 
     def export_proxies(self):
         with lock:
