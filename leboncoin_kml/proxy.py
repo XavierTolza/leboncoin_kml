@@ -23,7 +23,7 @@ import random
 import base64
 import logging
 from multiprocessing import Lock
-from os.path import isfile, join
+from os.path import isfile, join, abspath, dirname
 
 from proxybroker import Broker
 from tqdm import tqdm
@@ -52,18 +52,22 @@ async def save_proxy_file(proxies, filename):
             bar.update()
 
 
-# If proxy file not found, download it
-proxy_list_file = "proxylist.txt"
-if not isfile(proxy_list_file):
+def download_proxy_file(filename):
     print("Downloading proxy list, please wait")
     proxies = asyncio.Queue()
     broker = Broker(proxies)
     tasks = asyncio.gather(
         broker.find(types=['HTTP'], limit=N_PROXY),
-        save_proxy_file(proxies, filename=proxy_list_file),
+        save_proxy_file(proxies, filename=filename),
     )
     loop = asyncio.get_event_loop()
     loop.run_until_complete(tasks)
+
+
+# If proxy file not found, download it
+proxy_list_file = join(dirname(abspath(__file__)), "proxylist.txt")
+if not isfile(proxy_list_file):
+    download_proxy_file(proxy_list_file)
 
 lock = Lock()
 
@@ -71,11 +75,16 @@ lock = Lock()
 class RandomProxy(object):
 
     def __init__(self, settings):
+        self.settings = settings
         self.mode = settings.get('PROXY_MODE')
         self.max_retry_times = settings.getint('RETRY_TIMES')
         self.proxy_list = settings.get('PROXY_LIST')
         self.chosen_proxy = ''
+        self.proxies = {}
+        self.update_proxies()
 
+    def update_proxies(self):
+        log.debug("Updating proxies")
         if self.mode == Mode.RANDOMIZE_PROXY_EVERY_REQUESTS or self.mode == Mode.RANDOMIZE_PROXY_ONCE:
             if self.proxy_list is None:
                 raise KeyError('PROXY_LIST setting is missing')
@@ -99,7 +108,7 @@ class RandomProxy(object):
             if self.mode == Mode.RANDOMIZE_PROXY_ONCE:
                 self.chosen_proxy = random.choice(list(self.proxies.keys()))
         elif self.mode == Mode.SET_CUSTOM_PROXY:
-            custom_proxy = settings.get('CUSTOM_PROXY')
+            custom_proxy = self.settings.get('CUSTOM_PROXY')
             self.proxies = {}
             parts = re.match('(\w+://)([^:]+?:[^@]+?@)?(.+)', custom_proxy.strip())
             if not parts:
