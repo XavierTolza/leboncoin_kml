@@ -17,18 +17,10 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
-import asyncio
-import re
-import random
-import base64
 import logging
+import random
+import re
 from multiprocessing import Lock
-from os.path import isfile, join, abspath, dirname
-
-from proxybroker import Broker
-from tqdm import tqdm
-
-from leboncoin_kml.common import assets_folder, N_PROXY
 
 log = logging.getLogger('scrapy.proxies')
 logging.getLogger('proxybroker').setLevel(logging.WARNING)
@@ -37,40 +29,6 @@ logging.getLogger('proxybroker').setLevel(logging.WARNING)
 class Mode:
     RANDOMIZE_PROXY_EVERY_REQUESTS, RANDOMIZE_PROXY_ONCE, SET_CUSTOM_PROXY = range(3)
 
-
-async def save_proxy_file(proxies, res):
-    """Save proxies to a file."""
-    bar = tqdm(total=N_PROXY)
-    while True:
-        proxy = await proxies.get()
-        if proxy is None:
-            break
-        proto = 'https' if 'HTTPS' in proxy.types else 'http'
-        row = '%s://%s:%d\n' % (proto, proxy.host, proxy.port)
-        res.append(row)
-        bar.update()
-
-
-def download_proxy_file(res):
-    print("Downloading proxy list, please wait")
-    proxies = asyncio.Queue()
-    broker = Broker(proxies)
-    tasks = asyncio.gather(
-        broker.find(types=['HTTP'], limit=N_PROXY),
-        save_proxy_file(proxies, res),
-    )
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(tasks)
-
-
-# If proxy file not found, download it
-proxy_list_file = join(dirname(abspath(__file__)), "assets/proxylist.txt")
-if not isfile(proxy_list_file):
-    res = []
-    download_proxy_file(res)
-    with open(proxy_list_file,"w") as fp:
-        for i in res:
-            fp.write(i)
 
 lock = Lock()
 
@@ -92,26 +50,19 @@ class RandomProxy(object):
             if self.proxy_list is None:
                 raise KeyError('PROXY_LIST setting is missing')
             self.proxies = {}
-            fin = open(self.proxy_list)
-            try:
-                for line in fin.readlines():
-                    parts = re.match('(\w+://)([^:]+?:[^@]+?@)?(.+)', line.strip())
-                    if not parts:
-                        continue
+            with open(self.proxy_list, "r") as fp:
+                lines = fp.read().split("\n")
+            for line in lines:
+                parts = re.match('.*(http(s)?://)?[^\d]((\d{1,3}\.){3}\d{1,3}:\d{1,6}).*', line)
+                if not parts:
+                    continue
+                addr = parts.groups()[2]
 
-                    # Cut trailing @
-                    if parts.group(2):
-                        user_pass = parts.group(2)[:-1]
-                    else:
-                        user_pass = ''
-
-                    self.proxies[parts.group(1) + parts.group(3)] = user_pass
-            finally:
-                fin.close()
+                self.proxies[f"http://{addr}"] = ''
             if self.mode == Mode.RANDOMIZE_PROXY_ONCE:
                 self.chosen_proxy = random.choice(list(self.proxies.keys()))
         elif self.mode == Mode.SET_CUSTOM_PROXY:
-            raise NotImplementedError("Custom proxy not supported")
+            self.chosen_proxy = self.settings.get("PROXY_ADDRESS")
 
     @classmethod
     def from_crawler(cls, crawler):
@@ -119,15 +70,18 @@ class RandomProxy(object):
 
     def set_proxy_on_request(self, request, force_change=False):
         with lock:
-            if len(self.proxies) == 0:
-                raise ValueError('All proxies are unusable, cannot proceed')
-
-            if self.mode == Mode.RANDOMIZE_PROXY_EVERY_REQUESTS or len(self.chosen_proxy) < 3 or force_change:
-                proxy_address = self.chosen_proxy = random.choice(list(self.proxies.keys()))
-                log.debug('Using proxy <%s>, %d proxies left' % (proxy_address, len(self.proxies)))
-            else:
+            if self.mode == Mode.SET_CUSTOM_PROXY:
                 proxy_address = self.chosen_proxy
-        request.meta['proxy'] = proxy_address
+            else:
+                if len(self.proxies) == 0:
+                    raise ValueError('All proxies are unusable, cannot proceed')
+
+                if self.mode == Mode.RANDOMIZE_PROXY_EVERY_REQUESTS or len(self.chosen_proxy) < 3 or force_change:
+                    proxy_address = self.chosen_proxy = random.choice(list(self.proxies.keys()))
+                    log.debug('Using proxy <%s>, %d proxies left' % (proxy_address, len(self.proxies)))
+                else:
+                    proxy_address = self.chosen_proxy
+            request.meta['proxy'] = proxy_address
 
     def process_request(self, request, spider):
         # Don't overwrite with a random one (server-side state for IP)

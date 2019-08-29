@@ -17,7 +17,7 @@ from scrapy.xlib.pydispatch import dispatcher
 from leboncoin_kml.common import supprime_accent, id_from_url, http, encoding, headers
 from leboncoin_kml.container import Container
 from leboncoin_kml.postal_code_db import db
-from leboncoin_kml.proxy import proxy_list_file, Mode
+from leboncoin_kml.proxy import Mode
 
 
 class Image(object):
@@ -188,9 +188,6 @@ class LBCScrapper(scrapy.Spider):
 
 
 def scrap(url, out_file, max_page, use_proxy, proxylist, debug=False):
-    if proxylist is None:
-        proxylist = proxy_list_file
-
     n_concurrent_requests = 1000
     settings = dict(LOG_LEVEL="DEBUG" if debug else "INFO",
                     CONCURRENT_REQUESTS=n_concurrent_requests,
@@ -200,9 +197,6 @@ def scrap(url, out_file, max_page, use_proxy, proxylist, debug=False):
                     LOG_STDOUT=True,
                     **headers)
     if use_proxy:
-        if not isfile(proxylist):
-            raise ValueError("Proxy list %s not found" % proxylist)
-
         middlewares = {
             # 'scrapy.downloadermiddlewares.retry.RetryMiddleware': 90,
             'scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware': None,
@@ -215,6 +209,7 @@ def scrap(url, out_file, max_page, use_proxy, proxylist, debug=False):
 
         settings.update(dict(PROXY_LIST=proxylist,
                              PROXY_MODE=Mode.RANDOMIZE_PROXY_ONCE,
+                             DOWNLOAD_DELAY=1,
                              RETRY_ENABLED=False,
                              HTTPERROR_ALLOW_ALL=False,
                              DOWNLOAD_TIMEOUT=2,
@@ -233,7 +228,7 @@ if __name__ == '__main__':
                         default="out.tar")
     parser.add_argument("-m", dest="max_page", help="Page max à atteindre", default=None, type=int)
     parser.add_argument("--use_proxy", "-p", action="store_true", help="Utilisation d'une liste de proxy")
-    parser.add_argument("--proxylist", default=None, help="Specifier une liste de proxy manuelle")
+    parser.add_argument("--proxylist", default="proxylist.txt", help="Specifier une liste de proxy manuelle")
     parser.add_argument("--debug", "-d", action="store_true", help="Enable debug")
 
     args = parser.parse_args()

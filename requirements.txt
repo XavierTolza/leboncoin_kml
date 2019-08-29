@@ -5,5 +5,5 @@ urllib3
 jinja2
 pandas
 lxml
-proxybroker
 tqdm
+beautifulsoup4
