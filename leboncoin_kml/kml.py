@@ -1,15 +1,17 @@
 import logging
-from os.path import isfile, abspath, dirname, join
+from os.path import isfile
 
 import numpy as np
-import schedule as schedule
 from dotdict import dotdict
+from lxml import etree
 
 from leboncoin_kml.common import get_template
-from lxml import etree
 
 wrapper = u'<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2">%s</kml>'
 
+
+class ConvertError(ValueError):
+    pass
 
 class KMLEncoder(object):
     def __init__(self, filename, price_scale):
@@ -74,6 +76,8 @@ class Placemark(object):
         etree.SubElement(res, "name").text = name
 
         # Set coordinates
+        if not(item.lon and item.lat):
+            raise ConvertError("Cannot convert to XML")
         coordinates = np.array((item.lon, item.lat))
         coordinates += np.random.normal(0, 0.001, 2)
         coordinates = tuple(coordinates.tolist())

@@ -1,15 +1,21 @@
 import json
+import logging
 import re
 import tarfile
 from argparse import ArgumentParser
 from base64 import b64decode
 from contextlib import closing
 from io import BytesIO
+from multiprocessing import Lock
 from os.path import abspath, isfile, basename
 from time import time
 
 from leboncoin_kml.common import encoding
-from leboncoin_kml.kml import KMLEncoder
+from leboncoin_kml.kml import KMLEncoder, ConvertError
+
+log = logging.getLogger("container")
+lock = Lock()
+
 
 
 class Container(object):
@@ -48,11 +54,13 @@ class Container(object):
         self.tar.close()
 
     def __enter__(self):
+        lock.acquire()
         self.open()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
+        lock.release()
 
     def add_record(self, id, **kwargs):
         data = bytes(json.dumps(dict(id=id, **kwargs)), encoding)
@@ -64,11 +72,12 @@ class Container(object):
         self.addfile("images/%s" % filename, data)
 
     def addfile(self, filename, content_bytes):
-        with closing(BytesIO(content_bytes)) as fobj:
-            tarinfo = tarfile.TarInfo(filename)
-            tarinfo.size = len(fobj.getvalue())
-            tarinfo.mtime = time()
-            self.tar.addfile(tarinfo, fileobj=fobj)
+        with self:
+            with closing(BytesIO(content_bytes)) as fobj:
+                tarinfo = tarfile.TarInfo(filename)
+                tarinfo.size = len(fobj.getvalue())
+                tarinfo.mtime = time()
+                self.tar.addfile(tarinfo, fileobj=fobj)
 
     def get_record(self, id):
         tar = self.tar
@@ -82,7 +91,10 @@ class Container(object):
         with KMLEncoder(out_file, price_scale) as encoder:
             for id in self.ids.keys():
                 record = self.get_record(id)
-                encoder.append(record)
+                try:
+                    encoder.append(record)
+                except ConvertError:
+                    pass
 
 
 class ReadOnlyContainer(Container):

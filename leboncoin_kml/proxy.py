@@ -22,6 +22,10 @@ import random
 import re
 from multiprocessing import Lock
 
+from scrapy.http import Headers
+
+from leboncoin_kml.common import user_agents, encoding
+
 log = logging.getLogger('scrapy.proxies')
 logging.getLogger('proxybroker').setLevel(logging.WARNING)
 
@@ -38,6 +42,7 @@ class RandomProxy(object):
     def __init__(self, settings):
         self.settings = settings
         self.mode = settings.get('PROXY_MODE')
+        self.remove_failed_proxies = self.settings.get("REMOVE_FAILED_PROXY", False)
         self.max_retry_times = settings.getint('RETRY_TIMES')
         self.proxy_list = settings.get('PROXY_LIST')
         self.chosen_proxy = ''
@@ -50,15 +55,24 @@ class RandomProxy(object):
             if self.proxy_list is None:
                 raise KeyError('PROXY_LIST setting is missing')
             self.proxies = {}
+            regex = [
+                '.*(https|http)[^\d]+((\d{1,3}\.){3}\d{1,3}:\d{1,6}).*',
+                '((\d{1,3}\.){3}\d{1,3}:\d{1,6}).*'
+            ]
             with open(self.proxy_list, "r") as fp:
                 lines = fp.read().split("\n")
             for line in lines:
-                parts = re.match('.*(http(s)?://)?[^\d]((\d{1,3}\.){3}\d{1,3}:\d{1,6}).*', line)
+                if not len(line): continue
+                parts = next(j for j in (re.match(i, line, re.IGNORECASE) for i in regex) if j is not None)
                 if not parts:
                     continue
-                addr = parts.groups()[2]
+                groups = parts.groups()
+                protocol, addr = groups[:2]
+                if protocol is None:
+                    protocol = "http"
+                url = f"{protocol.lower()}://{addr}"
 
-                self.proxies[f"http://{addr}"] = ''
+                self.proxies[url] = ''
             if self.mode == Mode.RANDOMIZE_PROXY_ONCE:
                 self.chosen_proxy = random.choice(list(self.proxies.keys()))
         elif self.mode == Mode.SET_CUSTOM_PROXY:
@@ -82,6 +96,8 @@ class RandomProxy(object):
                 else:
                     proxy_address = self.chosen_proxy
             request.meta['proxy'] = proxy_address
+            headers = dict(USER_AGENT=random.choice(user_agents))
+            request.headers = Headers(headers, encoding=encoding)
 
     def process_request(self, request, spider):
         # Don't overwrite with a random one (server-side state for IP)
@@ -110,10 +126,13 @@ class RandomProxy(object):
                     fp.write(i + "\n")
 
     def process_exception(self, request, exception, spider):
-        log.warning("Got error %s for request %s" % (exception, request.url))
+        # log.warning("Got error %s for request %s" % (exception, request.url))
+        retries = request.meta.get('retry_times', 0)
+        max_retry_times = self.max_retry_times
 
         # Remove failed proxy from list
-        if self.mode == Mode.RANDOMIZE_PROXY_EVERY_REQUESTS or self.mode == Mode.RANDOMIZE_PROXY_ONCE:
+        if self.remove_failed_proxies and \
+                self.mode == Mode.RANDOMIZE_PROXY_EVERY_REQUESTS or self.mode == Mode.RANDOMIZE_PROXY_ONCE:
             proxy = request.meta['proxy']
             with lock:
                 try:
@@ -122,22 +141,19 @@ class RandomProxy(object):
                     pass
                 n_proxies_left = len(self.proxies)
             self.chosen_proxy = ''
-            request.meta["exception"] = True
             log.info('Removing failed proxy <%s>, %d proxies left' % (
                 proxy, n_proxies_left))
-            self.export_proxies()
+            request.meta["exception"] = True
 
         # Retry with new proxy
-        retries = request.meta.get('retry_times', 0) + 1
-        if retries <= self.max_retry_times:
-            log.debug("Retrying %(request)s (failed %(retries)d times): %(reason)s",
-                      {'request': request, 'retries': retries, 'reason': exception},
-                      extra={'spider': spider})
+        description = request.meta["description"] if "description" in request.meta else ''
+        if retries <= max_retry_times:
+            log.info(f"Retrying {description} {request} (failed {retries} times): {exception}")
             retryreq = request.copy()
-            retryreq.meta['retry_times'] = retries
+            retryreq.meta['retry_times'] = retries + 1
             retryreq.dont_filter = True
             self.set_proxy_on_request(request, force_change=True)
             res = retryreq
         else:
-            raise ValueError("Request %s failed too much!" % request.url)
+            raise ValueError("Request %s failed too much! (%i times)" % (request.url, max_retry_times))
         return res

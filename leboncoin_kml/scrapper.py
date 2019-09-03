@@ -5,7 +5,7 @@ import difflib
 import re
 from argparse import ArgumentParser
 from base64 import b64encode
-from os.path import isfile, join
+from os.path import join, abspath
 
 import numpy as np
 import scrapy
@@ -14,7 +14,8 @@ from scrapy import signals
 from scrapy.crawler import CrawlerProcess
 from scrapy.xlib.pydispatch import dispatcher
 
-from leboncoin_kml.common import supprime_accent, id_from_url, http, encoding, headers
+from leboncoin_kml.common import supprime_accent, id_from_url, http, encoding, headers, DEFAULT_PROXY_FILE, \
+    add_url_params
 from leboncoin_kml.container import Container
 from leboncoin_kml.postal_code_db import db
 from leboncoin_kml.proxy import Mode
@@ -46,94 +47,66 @@ class Image(object):
 
 class LBCScrapper(scrapy.Spider):
     name = 'lbcscrapper'
+    # Regex to find images
+    image_regex = [
+        re.compile("background-image:url\(.+"),
+        re.compile("https://img\d.leboncoin.fr/ad-(image|thumb|large)/[0-9a-f]+.(jpg|png)")
+    ]
 
     def __init__(self, url, filename, max_page=None):
         super(LBCScrapper, self).__init__()
-        self.filename = filename
         self.max_page = max_page if max_page is not None else np.inf
-        self.start_urls = [url]
-
-        # Regex to find images
-        self.image_regex = [
-            re.compile("background-image:url\(.+"),
-            re.compile("https://img\d.leboncoin.fr/ad-(image|thumb|large)/[0-9a-f]+.(jpg|png)")
-        ]
-
+        self.page_iterator = self.get_page_iterator(url)
         self.container = Container(filename)
-        self.container.open()
-        dispatcher.connect(self.spider_closed, signals.spider_closed)
-
-    @property
-    def stopping(self):
-        return getattr(self, "closed", None)
-
-    def stop(self):
-        setattr(self, "closed")
+        self.current_page = 0
+        self.start_urls = [self.next_page for _ in range(100 if max_page is None else max_page)]
+        self.filename = filename
 
     def parse_page(self, response):
         page_url = response._url
-        self.logger.info("Parsing page %s" % page_url)
+        page_number = self.page_number_from_url(page_url)
+        self.logger.info("Parsing page %i" % page_number)
+
         elements = response.xpath('//div[@itemprop="priceSpecification"]/../../..')
         for i, element in enumerate(elements):
             attribs = dotdict(element.attrib)
-            if "title" in attribs and "href" in attribs and not self.stopping:
+            if "title" in attribs and "href" in attribs:
                 url = attribs.href
-                if id_from_url(url) not in self.container.ids:
-                    self.logger.debug("Creating request for element %i of page %s" % (i, page_url))
+                element_id = id_from_url(url)
+                if element_id not in self.container.ids:
+                    self.logger.info("Creating request for element %i of page %i" % (i, page_number))
                     request = response.follow(url, self.parse_element)
+                    request.meta["description"] = "element %i" % element_id
                     yield request
                 else:
                     self.logger.info("Skipped %s" % url)
 
-    def parse(self, response):
-        current_url = response._url
+    @property
+    def next_page(self):
+        return self.page_iterator.__next__()
 
+    def page_number_from_url(self, url):
         # Process first page
         r = re.compile(".+(&|/)p(age)?(-|=)(\d+)")
         try:
-            current_page = int(r.findall(current_url)[0][-1])
+            current_page = int(r.findall(url)[0][-1])
         except IndexError:
             current_page = 1
+        return current_page
+
+    def parse(self, response):
+        current_url = response._url
+        page_number = self.page_number_from_url(current_url)
+
+        if page_number == self.current_page:
+            maxp = self.max_page
+            for _ in np.arange(self.current_page, min(maxp, self.current_page + 21)):
+                request = response.follow(self.next_page, self.parse, priority=1)
+                request.meta["description"] = f"page {page_number}"
+                yield request
 
         for i in self.parse_page(response):
             yield i
-
-        # Find next page
-        self.logger.debug("Searching for new pages on page %i" % current_page)
-        if current_page < self.max_page and not self.stopping:
-            bottom_links = [i.attrib["href"] for i in response.xpath("//nav/div/ul/li/a")]
-            if len(bottom_links) == 0:
-                raise ValueError("Failed to find links in the page")
-            bottom_links = [i for i in bottom_links if len(i)]
-            bottom_links = np.unique(bottom_links)
-            page_numbers = [(r.findall(i), i) for i in bottom_links]
-            page_numbers = [(i[0][-1], i[1]) for i in page_numbers if len(i[0])]
-            links = [(int(i[-1]), link) for i, link in page_numbers if len(i)]
-            page_numbers, links = zip(*links)
-            page_numbers = np.array(page_numbers)
-            links = np.array(links)
-
-            selector = page_numbers > current_page
-            if not np.any(selector):
-                raise ValueError("No page is found links is greater than current page %i" % current_page)
-            page_numbers, links = page_numbers[selector], links[selector]
-            sorter = np.argsort(page_numbers)
-            page_numbers = page_numbers[sorter]
-            links = links[sorter]
-            last_page_number = page_numbers[-1]
-
-            for page_number, link in zip(page_numbers[:10], links):
-                if page_number > self.max_page:
-                    self.stop()
-                    break
-                if page_number == last_page_number:
-                    method = self.parse
-                else:
-                    self.logger.info("Queued page %i: %s" % (page_number, link))
-                    method = self.parse_page
-                request = response.follow(link, method, priority=0)
-                yield request
-        self.logger.debug("Spider finished")
 
     def get_element_images(self, response):
         images = [i.attrib["style"] for i in response.xpath("//div[@style]")]
@@ -145,6 +118,13 @@ class LBCScrapper(scrapy.Spider):
     @staticmethod
     def b64encode(data):
         return b64encode(bytes(data, encoding)).decode(encoding)
+
+    def get_page_iterator(self, start_url):
+        i = 1
+        while i <= self.max_page:
+            self.current_page = i
+            yield add_url_params(start_url, page=i)
+            i += 1
 
     def parse_element(self, response):
         # Extract info
@@ -184,7 +164,13 @@ class LBCScrapper(scrapy.Spider):
         self.logger.info("Parsed element in page %s" % response._url)
 
     def spider_closed(self, spider):
-        self.container.close()
+        self.stop()
+
+    # @classmethod
+    # def from_crawler(cls, crawler, *args, **kwargs):
+    #     spider = super(LBCScrapper, cls).from_crawler(crawler, *args, **kwargs)
+    #     crawler.signals.connect(spider.spider_closed, signal=signals.spider_closed)
+    #     return spider
 
 
 def scrap(url, out_file, max_page, use_proxy, proxylist, debug=False):
@@ -194,27 +180,26 @@ def scrap(url, out_file, max_page, use_proxy, proxylist, debug=False):
                     CONCURRENT_REQUESTS_PER_DOMAIN=n_concurrent_requests,
                     CONCURRENT_REQUESTS_PER_IP=n_concurrent_requests,
                     CONCURRENT_ITEMS=n_concurrent_requests,
+                    RETRY_ENABLED=False,
+                    HTTPERROR_ALLOW_ALL=False,
+                    RETRY_TIMES=20,
+                    DNS_TIMEOUT=60,
+                    DOWNLOAD_TIMEOUT=60,
+                    RETRY_HTTP_CODES=[500, 503, 504, 400, 403, 404, 408],
+                    DOWNLOAD_DELAY=1,
                     LOG_STDOUT=True,
                     **headers)
     if use_proxy:
+        proxylist = abspath(proxylist)
         middlewares = {
-            # 'scrapy.downloadermiddlewares.retry.RetryMiddleware': 90,
-            'scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware': None,
-            'proxy.RandomProxy': 10,
-            # 'scrapy.spidermiddlewares.httperror.HttpErrorMiddleware': None,
-            'scrapy.downloadermiddlewares.downloadtimeout.DownloadTimeoutMiddleware': None,
-            # 'scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware': 110,
+            'proxy.RandomProxy': 200,
         }
         settings["DOWNLOADER_MIDDLEWARES"] = settings['SPIDER_MIDDLEWARES'] = middlewares
 
         settings.update(dict(PROXY_LIST=proxylist,
-                             PROXY_MODE=Mode.RANDOMIZE_PROXY_ONCE,
-                             DOWNLOAD_DELAY=1,
-                             RETRY_ENABLED=False,
-                             HTTPERROR_ALLOW_ALL=False,
-                             DOWNLOAD_TIMEOUT=2,
-                             RETRY_TIMES=20,
-                             RETRY_HTTP_CODES=[500, 503, 504, 400, 403, 404, 408]))
+                             PROXY_MODE=Mode.RANDOMIZE_PROXY_EVERY_REQUESTS,
+                             REMOVE_FAILED_PROXY=False,
+                             ))
 
     process = CrawlerProcess(settings)
     process.crawl(LBCScrapper, url, out_file, max_page)
@@ -228,7 +213,7 @@ if __name__ == '__main__':
                         default="out.tar")
     parser.add_argument("-m", dest="max_page", help="Page max à atteindre", default=None, type=int)
     parser.add_argument("--use_proxy", "-p", action="store_true", help="Utilisation d'une liste de proxy")
-    parser.add_argument("--proxylist", default="proxylist.txt", help="Specifier une liste de proxy manuelle")
+    parser.add_argument("--proxylist", default=DEFAULT_PROXY_FILE, help="Specifier une liste de proxy manuelle")
     parser.add_argument("--debug", "-d", action="store_true", help="Enable debug")
 
     args = parser.parse_args()
