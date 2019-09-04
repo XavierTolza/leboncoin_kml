@@ -19,6 +19,7 @@ from leboncoin_kml.common import supprime_accent, id_from_url, http, encoding, h
 from leboncoin_kml.container import Container
 from leboncoin_kml.postal_code_db import db
 from leboncoin_kml.proxy import Mode
+from time import time as get_time
 
 
 class Image(object):
@@ -155,7 +156,7 @@ class LBCScrapper(scrapy.Spider):
         result = dict(id=id, title=self.b64encode(title), url=url, images=[i.url for i in images],
                       description=self.b64encode(description), price=price, city=city,
                       postal_code=postal_code, category=category, day=day, month=month, year=year, hour=hour,
-                      minute=minute, lat=lat, lon=lon)
+                      minute=minute, lat=lat, lon=lon,scrapped_time=get_time())
 
         self.container.add_record(**result)
         for im in images:
