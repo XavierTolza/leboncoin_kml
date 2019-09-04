@@ -101,15 +101,16 @@ class ReadOnlyContainer(Container):
     open_mode = "r"
 
 
-def encode_kml(src, out):
+def encode_kml(src, out,scale):
     with ReadOnlyContainer(src) as c:
-        c.export_kml(out, (0, 1000))
+        c.export_kml(out, scale)
 
 
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument("src")
     parser.add_argument("out")
+    parser.add_argument("scale",type=lambda x:[int(i) for i in x.split(",")])
     args = parser.parse_args()
 
     encode_kml(**args.__dict__)
