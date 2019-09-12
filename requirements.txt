@@ -7,3 +7,4 @@ pandas
 lxml
 tqdm
 beautifulsoup4
+requests
