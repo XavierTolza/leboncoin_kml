@@ -7,3 +7,5 @@ tmp.py
 postal_code_db.csv
 *.tar*
 proxylist.txt
+*.kmz
+*.sh
