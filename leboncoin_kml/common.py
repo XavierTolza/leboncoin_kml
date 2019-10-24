@@ -3,6 +3,7 @@ import random
 from json import dumps
 from os.path import join, dirname, abspath
 from urllib.parse import ParseResult, urlencode, parse_qsl, urlparse, unquote
+import numpy as np
 
 import jinja2
 import urllib3
@@ -111,6 +112,4 @@ def add_url_params(url, **params):
     return new_url
 
 
-# Disable scrapy logging
-logging.getLogger("scrapy").setLevel(logging.WARNING)
-logging.getLogger("scrapy.core.engine").setLevel(logging.WARNING)
+months = dict(zip("jan,fev,mar,avr,mai,jun,jui,aou,sep,oct,nov,dec".split(","), np.arange(12)+1))

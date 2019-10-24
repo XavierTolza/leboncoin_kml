@@ -1,6 +1,9 @@
+from datetime import datetime, timedelta
 from time import sleep, time
 
 from selenium.common.exceptions import NoSuchElementException
+
+from leboncoin_kml.common import months
 
 
 class FinalPageReached(Exception):
@@ -65,11 +68,28 @@ class Annonce(object):
 
     @property
     def at(self):
-        return self.element.find_element_by_css_selector('section div p[itemprop="availableAtOrFrom"]').text
+        res = self.element.find_element_by_css_selector('section div p[itemprop="availableAtOrFrom"]').text
+        return res
 
     @property
     def post_date(self):
-        return self.element.find_element_by_css_selector('section div p[itemprop="availabilityStarts"]').text
+        res = self.element.find_element_by_css_selector('section div p[itemprop="availabilityStarts"]').text
+        day, hour = res.lower().split(", ")
+        hour, min = [int(i) for i in hour.split(":")]
+        now = datetime.today()
+        if "hier" in day:
+            now = now - timedelta(days=1)
+        elif "aujourd" in day:
+            now = datetime(now.year, now.month, now.day, hour, min, 0, 0)
+        else:
+            day, month = day.split(" ")
+            try:
+                month = months[month]
+            except KeyError:
+                raise KeyError("Invalid month detected: you should add %s in common.py" % month)
+            now = datetime(now.year, month, int(day), hour, min, 0, 0)
+
+        return now.timestamp()
 
     @property
     def img_url(self):
