@@ -6,5 +6,4 @@ jinja2
 pandas
 lxml
 tqdm
-beautifulsoup4
-requests
+selenium
