@@ -9,3 +9,5 @@ postal_code_db.csv
 proxylist.txt
 *.kmz
 *.sh
+*.log
+*.txt

@@ -1,7 +1,5 @@
-from json import dump
 from time import sleep, time
 
-from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
 
 
@@ -100,31 +98,3 @@ class Annonce(object):
 
     def scroll_view(self):
         self.driver.execute_script("arguments[0].scrollIntoView();", self.element)
-
-
-if __name__ == '__main__':
-    url = "https://www.leboncoin.fr/recherche/?category=9&locations=r_16&real_estate_type=1&immo_sell_type=old,new&price=min-325000&square=60-max"
-
-    with open("output.txt", "w") as fp:
-        with LBC(webdriver.Firefox(), url) as d:
-            try:
-                while True:
-                    while d.blocked:
-                        print("Please solve captcha")
-                        sleep(2)
-                    sleep(2)
-                    print("Getting page info")
-                    all = d.list
-                    try:
-                        print("Parsing page")
-                        annonces = [i.dict for i in all]
-                        print("Going to next page")
-                        d.got_to_next_page()
-                    except NoSuchElementException as e:
-                        print(str(e))
-
-                    for i in annonces:
-                        print(i)
-                        dump(i, fp)
-            except FinalPageReached:
-                print("Finished research")

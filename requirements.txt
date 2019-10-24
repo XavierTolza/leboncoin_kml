@@ -1,9 +1,3 @@
 numpy
-scrapy
-dotdict
-urllib3
-jinja2
 pandas
-lxml
-tqdm
 selenium
