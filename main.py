@@ -24,6 +24,13 @@ def main(url, output_file, headless=False, sleep_time=10):
         with LBC(driver, url) as d:
             try:
                 while True:
+                    if d.blocked:
+                        if headless:
+                            raise CaptchaException("Felt into captcha")
+                        while d.blocked:
+                            print("Please solve captcha")
+                            sleep(np.random.normal(2, 0.1))
+
                     delta_t = time() - t0
                     sleep_duration = np.random.normal(sleep_time - delta_t, sleep_time / 10)
                     print(f"Last page took {delta_t} seconds. Sleeping {sleep_duration} to reach {sleep_time}")
@@ -31,12 +38,6 @@ def main(url, output_file, headless=False, sleep_time=10):
                         sleep(sleep_duration)
                     t0 = time()
 
-                    if d.blocked:
-                        if headless:
-                            raise CaptchaException("Felt into captcha")
-                        while d.blocked:
-                            print("Please solve captcha")
-                            sleep(np.random.normal(2, 0.1))
                     print("Getting page info")
                     all = d.list
                     try:
