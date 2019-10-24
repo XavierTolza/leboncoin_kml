@@ -15,4 +15,4 @@ ADD leboncoin_kml /app/leboncoin_kml
 ADD main.py /app/
 
 VOLUME ["/out"]
-ENTRYPOINT python main.py --headless --output /out/output.txt
+ENTRYPOINT python main.py --headless --output /out/output.txt -s 40

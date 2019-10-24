@@ -1,6 +1,6 @@
 from argparse import ArgumentParser
 from json import dump
-from time import sleep
+from time import sleep, time
 import numpy as np
 
 from selenium import webdriver
@@ -14,16 +14,23 @@ class CaptchaException(Exception):
     pass
 
 
-def main(url, output_file, headless=False):
+def main(url, output_file, headless=False, sleep_time=10):
     options = Options()
     options.headless = headless
     driver = webdriver.Firefox(options=options)
+    t0 = -100 * sleep_time
 
     with open(output_file, "w") as fp:
         with LBC(driver, url) as d:
             try:
                 while True:
-                    sleep(np.random.normal(1, 0.1))
+                    delta_t = time() - t0
+                    sleep_duration = np.random.normal(sleep_time - delta_t, sleep_time / 10)
+                    print(f"Last page took {delta_t} seconds. Sleeping {sleep_duration} to reach {sleep_time}")
+                    if sleep_duration > 0:
+                        sleep(sleep_duration)
+                    t0 = time()
+
                     if d.blocked:
                         if headless:
                             raise CaptchaException("Felt into captcha")
@@ -51,6 +58,7 @@ def parse():
     parser = ArgumentParser()
     parser.add_argument("--headless", action="store_true")
     parser.add_argument("-o", "--output_file", default="output.txt")
+    parser.add_argument("-s", "--sleep_time", default=10, type=float)
     return parser.parse_args()
 
 
