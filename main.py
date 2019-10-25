@@ -1,13 +1,12 @@
 from argparse import ArgumentParser
 from json import dump
 from time import sleep, time
-import numpy as np
 
-from selenium import webdriver
+import numpy as np
 from selenium.common.exceptions import NoSuchElementException
-from selenium.webdriver.firefox.options import Options
 
 from leboncoin_kml.lbc import LBC, FinalPageReached
+from leboncoin_kml.scrapper import Firefox
 
 
 class CaptchaException(Exception):
@@ -15,13 +14,11 @@ class CaptchaException(Exception):
 
 
 def main(url, output_file, headless=False, sleep_time=10):
-    options = Options()
-    options.headless = headless
-    driver = webdriver.Firefox(options=options)
+
     t0 = -100 * sleep_time
 
     with open(output_file, "w") as fp:
-        with LBC(driver, url) as d:
+        with LBC(Firefox(headless=headless), url) as d:
             try:
                 while True:
                     if d.blocked:
