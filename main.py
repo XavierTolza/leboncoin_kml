@@ -1,12 +1,13 @@
 from argparse import ArgumentParser
-from json import dump
+from json import dump, dumps
 from time import sleep, time
 
 import numpy as np
-from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import NoSuchElementException, InsecureCertificateException
 
-from leboncoin_kml.lbc import LBC, FinalPageReached
-from leboncoin_kml.scrapper import Firefox
+from leboncoin_kml.common import timeout_settings
+from leboncoin_kml.lbc import LBC, FinalPageReached, ParserBlocked, WrongUserAgent
+from leboncoin_kml.scrapper import ConnexionError
 
 
 class CaptchaException(Exception):
@@ -14,42 +15,42 @@ class CaptchaException(Exception):
 
 
 def main(url, output_file, headless=False, sleep_time=10):
-
-    t0 = -100 * sleep_time
+    preferences = {i: 20 for i in timeout_settings}
 
     with open(output_file, "w") as fp:
-        with LBC(Firefox(headless=headless), url) as d:
+        d = LBC(url, headless=headless, start_anonymously=True)
+        d.set_preference(**preferences)
+        need_refresh = False
+        with d:
             try:
                 while True:
-                    if d.blocked:
-                        if headless:
-                            raise CaptchaException("Felt into captcha")
-                        while d.blocked:
-                            print("Please solve captcha")
-                            sleep(np.random.normal(2, 0.1))
-
-                    delta_t = time() - t0
-                    sleep_duration = np.random.normal(sleep_time - delta_t, sleep_time / 10)
-                    print(f"Last page took {delta_t} seconds. Sleeping {sleep_duration} to reach {sleep_time}")
-                    if sleep_duration > 0:
-                        sleep(sleep_duration)
-                    t0 = time()
-
-                    print("Getting page info")
-                    all = d.list
                     try:
-                        print("Parsing page")
-                        annonces = [i.dict for i in all]
-                        print("Going to next page")
-                        d.got_to_next_page()
-                    except NoSuchElementException as e:
-                        print(str(e))
+                        if need_refresh:
+                            d.refresh()
+                            need_refresh = False
 
-                    for i in annonces:
-                        dump(i, fp)
-                        fp.write("\n")
+                        if d.blocked:
+                            raise ParserBlocked("Reached captcha")
+                        if "navigateur à jour" in d.title:
+                            raise ParserBlocked("Need user agent change")
+                        print("Getting page info")
+                        annonces = d.list
+
+                        for i in annonces:
+                            fp.write(dumps(i).replace("\n", "") + "\n")
+
+                        print(f"Parsed {len(annonces)} elements")
+                        d.got_to_next_page()
+                    except (ParserBlocked, WrongUserAgent, InsecureCertificateException, ConnexionError) as e:
+                        print(f"Got error {str(e)}. Changing identity")
+                        d.change_identity(proxy=type(e) != WrongUserAgent)
+                        need_refresh = True
+
             except FinalPageReached:
                 print("Finished research")
+            finally:
+                print("Closing browser")
+            pass
 
 
 def parse():

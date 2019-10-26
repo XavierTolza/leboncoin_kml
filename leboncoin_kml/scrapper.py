@@ -10,7 +10,7 @@ from selenium.webdriver.firefox.options import Options
 from user_agent import generate_user_agent
 
 
-class ProxyError(Exception):
+class ConnexionError(Exception):
     pass
 
 
@@ -114,12 +114,16 @@ class Firefox(webdriver.Firefox):
         try:
             super(Firefox, self).get(url)
         except WebDriverException as e:
-            if "about:neterror?e=proxyConnectFailure" in str(e):
-                raise ProxyError("Proxy connexion refused. Are your proxy settings correct?")
+            err = str(e)
+            r = re.compile(".+about:neterror\?e=(.+)&.+")
+            err = r.match(err)
+            if err is not None:
+                err = err.groups()[0]
+                raise ConnexionError(err)
             raise
 
     def set_user_agent(self, value):
-        self.set_preference(**{"general.useragent.overridepreference": value})
+        self.set_preference(**{"general.useragent.override": value})
 
     def generate_user_agent(self, **kwargs):
         return generate_user_agent(**kwargs)
@@ -133,13 +137,15 @@ class Firefox(webdriver.Firefox):
         res[1] = int(res[1])
         return res
 
-    def change_identity(self):
-        self.set_proxy(socks=self.generate_proxy())
-        self.set_user_agent(self.generate_user_agent())
+    def change_identity(self, proxy=True, user_agent=True):
+        if proxy:
+            self.set_proxy(socks=self.generate_proxy())
+        if user_agent:
+            self.set_user_agent(self.generate_user_agent())
 
 
 if __name__ == '__main__':
     with Firefox() as f:
         f.change_identity()
-        f.get("https://webkay.robinlinus.com/")
+        f.get("https://amiunique.org/fp")
         pass
