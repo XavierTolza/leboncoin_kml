@@ -1,3 +1,5 @@
 numpy
 pandas
 selenium
+user_agent
+proxybrocker
