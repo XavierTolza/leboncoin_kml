@@ -1,9 +1,7 @@
 from argparse import ArgumentParser
-from json import dump, dumps
-from time import sleep, time
+from json import dumps
 
-import numpy as np
-from selenium.common.exceptions import NoSuchElementException, InsecureCertificateException
+from selenium.common.exceptions import InsecureCertificateException
 
 from leboncoin_kml.common import timeout_settings
 from leboncoin_kml.lbc import LBC, FinalPageReached, ParserBlocked, WrongUserAgent
@@ -14,7 +12,7 @@ class CaptchaException(Exception):
     pass
 
 
-def main(url, output_file, headless=False, sleep_time=10):
+def main(url, output_file, headless=False):
     preferences = {i: 20 for i in timeout_settings}
 
     with open(output_file, "w") as fp:
@@ -57,7 +55,6 @@ def parse():
     parser = ArgumentParser()
     parser.add_argument("--headless", action="store_true")
     parser.add_argument("-o", "--output_file", default="output.txt")
-    parser.add_argument("-s", "--sleep_time", default=10, type=float)
     return parser.parse_args()
 
 
