@@ -19,6 +19,7 @@ def main(url, output_file, headless=False):
         d = LBC(url, headless=headless, start_anonymously=True)
         d.set_preference(**preferences)
         need_refresh = False
+        n_retry = 0
         try:
             with d:
                 while True:
@@ -33,6 +34,7 @@ def main(url, output_file, headless=False):
                             raise ParserBlocked("Need user agent change")
                         print("Getting page info")
                         annonces = d.list
+                        n_retry = 0
 
                         for i in annonces:
                             fp.write(dumps(i).replace("\n", "") + "\n")
@@ -41,7 +43,8 @@ def main(url, output_file, headless=False):
                         d.got_to_next_page()
                     except (ParserBlocked, WrongUserAgent, InsecureCertificateException,
                             ConnexionError, FindProxyError) as e:
-                        print(f"Got error {str(e)}. Changing identity")
+                        n_retry += 1
+                        print(f"Got error {str(type(e))}:{str(e)}. Changing identity ({n_retry} consecutive times)")
                         d.change_identity(proxy=type(e) != WrongUserAgent)
                         need_refresh = True
         except FinalPageReached:
