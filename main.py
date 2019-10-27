@@ -14,6 +14,12 @@ class CaptchaException(Exception):
 
 def main(url, output_file, headless=False):
     preferences = {i: 10 for i in timeout_settings}
+    preferences.update({
+        "browser.cache.disk.enable": False,
+        "browser.cache.memory.enable": False,
+        "browser.cache.offline.enable": False,
+        "network.http.use-cache": False
+    })
 
     with open(output_file, "w") as fp:
         d = LBC(url, headless=headless, start_anonymously=True)
@@ -44,8 +50,10 @@ def main(url, output_file, headless=False):
                     except (ParserBlocked, WrongUserAgent, InsecureCertificateException,
                             ConnexionError, FindProxyError) as e:
                         n_retry += 1
-                        d.log.warning(f"Got error {str(type(e))}:{str(e)}. Changing identity ({n_retry} consecutive times)")
+                        d.log.warning(
+                            f"Got error {type(e).__name__}:{str(e)}. Changing identity ({n_retry} consecutive times)")
                         d.change_identity(proxy=type(e) != WrongUserAgent)
+                        d.delete_all_cookies()
                         need_refresh = True
         except FinalPageReached:
             print("Finished research")
