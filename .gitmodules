@@ -1,0 +1,3 @@
+[submodule "easylogger"]
+	path = easylogger
+	url = git@github.com:XavierTolza/easylogger.git

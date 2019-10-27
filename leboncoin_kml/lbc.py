@@ -15,6 +15,7 @@ class WrongUserAgent(Exception):
     pass
 
 
+
 class LBC(Firefox):
     def __init__(self, url, headless=False, start_anonymously=False):
         super(LBC, self).__init__(headless=headless)
@@ -55,14 +56,12 @@ class LBC(Firefox):
 
     def set_proxy(self, *args, **kwargs):
         super(LBC, self).set_proxy(*args, **kwargs)
-        print(f"Setting proxy {(args, kwargs)}")
+        self.log.info(f"Setting proxy {(args, kwargs)}")
 
     def set_user_agent(self, value):
         super(LBC, self).set_user_agent(value)
-        print(f"Setting user agent: {value}")
-
-    def get(self, url):
-        super(LBC, self).get(url)
+        self.log.info(f"Setting user agent: {value}")
 
     def refresh(self):
-        self.get(self.__current_url)
+        url = self.__current_url
+        self.get(url)

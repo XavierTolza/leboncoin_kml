@@ -13,7 +13,7 @@ class CaptchaException(Exception):
 
 
 def main(url, output_file, headless=False):
-    preferences = {i: 20 for i in timeout_settings}
+    preferences = {i: 10 for i in timeout_settings}
 
     with open(output_file, "w") as fp:
         d = LBC(url, headless=headless, start_anonymously=True)
@@ -31,20 +31,20 @@ def main(url, output_file, headless=False):
                         if d.blocked:
                             raise ParserBlocked("Reached captcha")
                         if "navigateur à jour" in d.title:
-                            raise ParserBlocked("Need user agent change")
-                        print("Getting page info")
+                            raise WrongUserAgent("Need user agent change")
+                        d.log.debug("Getting page info")
                         annonces = d.list
                         n_retry = 0
 
                         for i in annonces:
                             fp.write(dumps(i).replace("\n", "") + "\n")
 
-                        print(f"Parsed {len(annonces)} elements")
+                        d.log.info(f"Parsed {len(annonces)} elements")
                         d.got_to_next_page()
                     except (ParserBlocked, WrongUserAgent, InsecureCertificateException,
                             ConnexionError, FindProxyError) as e:
                         n_retry += 1
-                        print(f"Got error {str(type(e))}:{str(e)}. Changing identity ({n_retry} consecutive times)")
+                        d.log.warning(f"Got error {str(type(e))}:{str(e)}. Changing identity ({n_retry} consecutive times)")
                         d.change_identity(proxy=type(e) != WrongUserAgent)
                         need_refresh = True
         except FinalPageReached:

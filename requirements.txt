@@ -3,3 +3,4 @@ pandas
 selenium
 user_agent
 proxybroker
+-e easylogger
