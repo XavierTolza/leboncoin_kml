@@ -10,6 +10,7 @@ class FinalPageReached(Exception):
 class ParserBlocked(Exception):
     pass
 
+
 class WrongUserAgent(Exception):
     pass
 
@@ -19,6 +20,7 @@ class LBC(Firefox):
         super(LBC, self).__init__(headless=headless)
         self.start_anonymously = start_anonymously
         self.url = url
+        self.__current_url = url
 
     def __enter__(self):
         super(LBC, self).__enter__()
@@ -33,14 +35,15 @@ class LBC(Firefox):
 
     @property
     def next_page_link(self):
-        return self.find_element_by_css_selector("nav div ul").find_elements_by_css_selector("li")[-1] \
-            .find_element_by_css_selector('a')
+        res = self.find_element_by_name("chevronright").find_element_by_xpath("./..")
+        return res
 
     def got_to_next_page(self):
         try:
             link = self.next_page_link
             url = link.get_attribute("href")
             self.get(url)
+            self.__current_url = url
         except NoSuchElementException:
             raise FinalPageReached()
 
@@ -49,3 +52,17 @@ class LBC(Firefox):
         data = self.execute_script("return window.__REDIAL_PROPS__;")
         res = data[4]["data"]["ads"]
         return res
+
+    def set_proxy(self, *args, **kwargs):
+        super(LBC, self).set_proxy(*args, **kwargs)
+        print(f"Setting proxy {(args, kwargs)}")
+
+    def set_user_agent(self, value):
+        super(LBC, self).set_user_agent(value)
+        print(f"Setting user agent: {value}")
+
+    def get(self, url):
+        super(LBC, self).get(url)
+
+    def refresh(self):
+        self.get(self.__current_url)

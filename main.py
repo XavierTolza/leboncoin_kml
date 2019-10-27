@@ -5,7 +5,7 @@ from selenium.common.exceptions import InsecureCertificateException
 
 from leboncoin_kml.common import timeout_settings
 from leboncoin_kml.lbc import LBC, FinalPageReached, ParserBlocked, WrongUserAgent
-from leboncoin_kml.scrapper import ConnexionError
+from leboncoin_kml.scrapper import ConnexionError, FindProxyError
 
 
 class CaptchaException(Exception):
@@ -19,8 +19,8 @@ def main(url, output_file, headless=False):
         d = LBC(url, headless=headless, start_anonymously=True)
         d.set_preference(**preferences)
         need_refresh = False
-        with d:
-            try:
+        try:
+            with d:
                 while True:
                     try:
                         if need_refresh:
@@ -39,16 +39,15 @@ def main(url, output_file, headless=False):
 
                         print(f"Parsed {len(annonces)} elements")
                         d.got_to_next_page()
-                    except (ParserBlocked, WrongUserAgent, InsecureCertificateException, ConnexionError) as e:
+                    except (ParserBlocked, WrongUserAgent, InsecureCertificateException,
+                            ConnexionError, FindProxyError) as e:
                         print(f"Got error {str(e)}. Changing identity")
                         d.change_identity(proxy=type(e) != WrongUserAgent)
                         need_refresh = True
-
-            except FinalPageReached:
-                print("Finished research")
-            finally:
-                print("Closing browser")
-            pass
+        except FinalPageReached:
+            print("Finished research")
+        finally:
+            print("Closing browser")
 
 
 def parse():

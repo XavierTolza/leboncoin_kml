@@ -1,17 +1,28 @@
+import random
 import re
 import subprocess
 
-from selenium import webdriver
 import numpy as np
+from selenium import webdriver
 from selenium.common.exceptions import WebDriverException
-from selenium.webdriver import ActionChains
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.firefox.options import Options
 from user_agent import generate_user_agent
 
 
 class ConnexionError(Exception):
-    pass
+    def __init__(self, e):
+        err = str(e)
+        r = re.compile(".+about:neterror\?e=(.+)&.+")
+        _err = r.match(err)
+        if _err is not None:
+            err = _err.groups()[0]
+        super(ConnexionError, self).__init__(err)
+
+
+class FindProxyError(Exception):
+    def __init__(self):
+        super(FindProxyError, self).__init__("Unable to find proxy. Are you connected to internet? "
+                                             "Is proxybrocker installed?")
 
 
 class Firefox(webdriver.Firefox):
@@ -63,6 +74,9 @@ class Firefox(webdriver.Firefox):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        while len(self.window_handles) > 1:
+            self.tab = -1
+            self.close_tab()
         self.close()
 
     def close(self):
@@ -97,6 +111,7 @@ class Firefox(webdriver.Firefox):
                              f"{list(self.pref_types.keys())}")
         finally:
             self.close_tab()
+        return
 
     def set_proxy(self, type=1, share_proxy_settings=False, **proxies):
         pref = {"network.proxy.type": type, "network.proxy.share_proxy_settings": share_proxy_settings}
@@ -114,13 +129,13 @@ class Firefox(webdriver.Firefox):
         try:
             super(Firefox, self).get(url)
         except WebDriverException as e:
-            err = str(e)
-            r = re.compile(".+about:neterror\?e=(.+)&.+")
-            err = r.match(err)
-            if err is not None:
-                err = err.groups()[0]
-                raise ConnexionError(err)
-            raise
+            raise ConnexionError(e)
+
+    def refresh(self):
+        try:
+            super(Firefox, self).refresh()
+        except WebDriverException as e:
+            raise ConnexionError(e)
 
     def set_user_agent(self, value):
         self.set_preference(**{"general.useragent.override": value})
@@ -129,9 +144,12 @@ class Firefox(webdriver.Firefox):
         return generate_user_agent(**kwargs)
 
     def generate_proxy(self):
-        cmd = "proxybroker find --types SOCKS5 --strict -l 1"
-        res = subprocess.run(cmd.split(" "), stdout=subprocess.PIPE)
+        cmd = "proxybroker find --types SOCKS5 --strict -l 10"
+        res = subprocess.run(cmd.split(" "), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        if res.returncode != 0:
+            raise FindProxyError()
         res = res.stdout
+        res = random.choice(res.split(b"\n")[:-1])
         res = self.ip_finder.match(res.decode("utf-8")).groups()[0]
         res = list(res.split(":"))
         res[1] = int(res[1])
