@@ -15,7 +15,7 @@ async def save(proxies, self):
         if proxy is None:
             break
         proxy = (proxy.host, proxy.port)
-        while self.data.qsize() > 100:
+        while self.data.qsize() > 100 and self.running:
             sleep(5)
         self.append(proxy)
 
@@ -28,6 +28,7 @@ class PBrocker(Process, LoggingClass):
         self.proxies = proxies = asyncio.Queue()
         self.__brocker = Broker(proxies)
         self.loop = asyncio.get_event_loop()
+        self.running = False
 
     def run(self) -> None:
         tasks = asyncio.gather(
@@ -41,8 +42,14 @@ class PBrocker(Process, LoggingClass):
         self.data.put(value)
 
     def stop(self):
+        self.log.debug("Stopping brocker")
+        self.running = False
         self.__brocker.stop()
         self.loop.stop()
+
+    def start(self) -> None:
+        self.running = True
+        super(PBrocker, self).start()
 
     def __enter__(self):
         self.start()

@@ -67,11 +67,12 @@ class Firefox(webdriver.Firefox, LoggingClass):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        self.log.debug("Stopping scrapper")
+        self.broker.__exit__(exc_type, exc_val, exc_tb)
         while len(self.window_handles) > 1:
             self.tab = -1
             self.close_tab()
         self.close()
-        self.broker.__exit__(exc_type, exc_val, exc_tb)
 
     def close(self):
         while self.n_tabs > 1:
