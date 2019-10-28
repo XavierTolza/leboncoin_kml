@@ -4,3 +4,4 @@ selenium
 user_agent
 proxybroker
 -e easylogger
+-e memapdict

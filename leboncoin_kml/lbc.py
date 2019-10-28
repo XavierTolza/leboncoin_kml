@@ -1,6 +1,7 @@
 from selenium.common.exceptions import NoSuchElementException, InsecureCertificateException
 
 from leboncoin_kml.scrapper import Firefox, FindProxyError, ConnexionError
+from memapdict.memapdict import memapdict
 
 
 class FinalPageReached(Exception):
@@ -16,8 +17,10 @@ class WrongUserAgent(Exception):
 
 
 class LBC(Firefox):
-    def __init__(self, url, headless=False, start_anonymously=True):
+    def __init__(self, url, output_folder, headless=False, start_anonymously=True):
         super(LBC, self).__init__(headless=headless)
+        self.output_folder = output_folder
+        self.container = memapdict(output_folder)
         self.start_anonymously = start_anonymously
         self.url = url
         self.__current_url = url

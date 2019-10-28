@@ -1,3 +1,6 @@
 [submodule "easylogger"]
 	path = easylogger
 	url = git@github.com:XavierTolza/easylogger.git
+[submodule "memapdict"]
+	path = memapdict
+	url = https://github.com/XavierTolza/memapdict.git
