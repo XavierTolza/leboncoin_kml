@@ -1,4 +1,5 @@
 import re
+from os import system
 
 import numpy as np
 from selenium import webdriver
@@ -34,15 +35,14 @@ class Firefox(webdriver.Firefox, LoggingClass):
     def __init__(self, headless=False, timeout=10, enable_cache=False):
         options = Options()
         options.headless = headless
-        profile = webdriver.FirefoxProfile()
-        for i in timeout_settings:
-            profile.set_preference(i, timeout)
-        for i in "browser.cache.disk.enable,browser.cache.memory.enable,browser.cache.offline.enable," \
-                 "network.http.use-cache".split(","):
-            profile.set_preference(i, enable_cache)
+        preferences = {i: timeout for i in timeout_settings}
+        preferences.update({i: enable_cache for i in "browser.cache.disk.enable,browser.cache.memory."
+                                                     "enable,browser.cache.offline.enable," \
+                                                     "network.http.use-cache".split(",")})
         self.broker = PBrocker()
         LoggingClass.__init__(self)
-        webdriver.Firefox.__init__(self, options=options, firefox_profile=profile)
+        webdriver.Firefox.__init__(self, options=options)
+        self.set_preference(**preferences)
 
     def new_tab(self, url=None):
         self.execute_script(f'window.open("","_blank");')
@@ -75,7 +75,7 @@ class Firefox(webdriver.Firefox, LoggingClass):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.log.debug("Stopping scrapper")
-        self.broker.__exit__(exc_type, exc_val, exc_tb)
+        system(f"kill -9 {self.broker.pid}")
         while len(self.window_handles) > 1:
             self.tab = -1
             self.close_tab()
@@ -99,16 +99,14 @@ class Firefox(webdriver.Firefox, LoggingClass):
             """
 
             searchbar = None
-            try:
-                self.find_element_by_id("warningButton").click()
-                searchbar = self.find_element_by_id("textbox").find_element_by_css_selector("input")
-            finally:
-                for key, value in elements.items():
-                    value_type = type(value)
-                    if searchbar is not None:
-                        searchbar.clear()
-                        searchbar.send_keys(key)
-                    self.execute_script(script % self.pref_types[value_type], key, value)
+            # self.find_element_by_id("warningButton").click()
+            # searchbar = self.find_element_by_id("textbox").find_element_by_css_selector("input")
+            for key, value in elements.items():
+                value_type = type(value)
+                # if searchbar is not None:
+                #     searchbar.clear()
+                #     searchbar.send_keys(key)
+                self.execute_script(script % self.pref_types[value_type], key, value)
         except KeyError:
             raise ValueError(f"Wrong type for pref {key} value: {str(value_type)}. Supported types are "
                              f"{list(self.pref_types.keys())}")
@@ -176,6 +174,7 @@ class Firefox(webdriver.Firefox, LoggingClass):
 
 if __name__ == '__main__':
     f = Firefox()
+    f.new_tab("https://google.com")
     p = ("47.254.173.77", 3128)
     f.set_proxy(http=p, ssl=p)
     f.get("https://www.hostip.fr/")

@@ -10,6 +10,7 @@ def main(url, output_file, headless=False, start_anonymously=True):
         try:
             with d:
                 d.run(lambda x: [fp.write(dumps(i).replace("\n", "") + "\n") for i in x])
+            print("finished")
         except FinalPageReached:
             print("Finished research")
 
