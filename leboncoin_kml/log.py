@@ -9,4 +9,5 @@ class LoggingClass(_LoggingClass):
                                            log_level_file=config.log_level,
                                            log_level_console=config.log_level,
                                            color_file=False,
-                                           color_console=True)
+                                           color_console=True,
+                                           time_in_formatter=True)
