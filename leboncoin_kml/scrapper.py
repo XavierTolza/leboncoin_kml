@@ -6,6 +6,7 @@ from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.firefox.options import Options
 from user_agent import generate_user_agent
 
+from leboncoin_kml.common import timeout_settings
 from leboncoin_kml.log import LoggingClass
 from leboncoin_kml.proxy import PBrocker
 
@@ -30,12 +31,18 @@ class Firefox(webdriver.Firefox, LoggingClass):
     pref_types = {str: "String", int: "Int", bool: "Bool"}
     ip_finder = re.compile(".+[^\d](\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{1,6}).+")
 
-    def __init__(self, headless=False):
+    def __init__(self, headless=False, timeout=10, enable_cache=False):
         options = Options()
         options.headless = headless
+        profile = webdriver.FirefoxProfile()
+        for i in timeout_settings:
+            profile.set_preference(i, timeout)
+        for i in "browser.cache.disk.enable,browser.cache.memory.enable,browser.cache.offline.enable," \
+                 "network.http.use-cache".split(","):
+            profile.set_preference(i, enable_cache)
         self.broker = PBrocker()
         LoggingClass.__init__(self)
-        webdriver.Firefox.__init__(self, options=options)
+        webdriver.Firefox.__init__(self, options=options, firefox_profile=profile)
 
     def new_tab(self, url=None):
         self.execute_script(f'window.open("","_blank");')
