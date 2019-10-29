@@ -4,21 +4,20 @@ from json import dumps
 from leboncoin_kml.lbc import LBC, FinalPageReached
 
 
-def main(url, output_file, headless=False, start_anonymously=True):
-    with open(output_file, "w") as fp:
-        d = LBC(url, headless=headless, start_anonymously=start_anonymously)
-        try:
-            with d:
-                d.run(lambda x: [fp.write(dumps(i).replace("\n", "") + "\n") for i in x])
-            print("finished")
-        except FinalPageReached:
-            print("Finished research")
+def main(url, output_folder, headless=False, start_anonymously=False):
+    d = LBC(url, output_folder, headless=headless, start_anonymously=start_anonymously)
+    try:
+        with d:
+            d.run()
+        print("finished")
+    except FinalPageReached:
+        print("Finished research")
 
 
 def parse():
     parser = ArgumentParser()
     parser.add_argument("--headless", action="store_true")
-    parser.add_argument("-o", "--output_file", default="output.txt")
+    parser.add_argument("-o", "--output_folder", default="output")
     return parser.parse_args()
 
 

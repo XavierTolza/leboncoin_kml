@@ -10,3 +10,6 @@ permet de récupérer les offres informatiques du site jusqu'à la page 10 et fo
 
 # Proxy
 Vous pouvez utiliser [proxybroker](https://github.com/constverum/ProxyBroker) pour proxifier les requetes
+
+# URL de OSMR:
+http://download.geofabrik.de/europe/france-latest.osm.pbf

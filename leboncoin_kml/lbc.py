@@ -1,7 +1,7 @@
 from selenium.common.exceptions import NoSuchElementException, InsecureCertificateException
 
+from leboncoin_kml.container import Container
 from leboncoin_kml.scrapper import Firefox, FindProxyError, ConnexionError
-from memapdict.memapdict import memapdict
 
 
 class FinalPageReached(Exception):
@@ -20,7 +20,7 @@ class LBC(Firefox):
     def __init__(self, url, output_folder, headless=False, start_anonymously=True):
         super(LBC, self).__init__(headless=headless)
         self.output_folder = output_folder
-        self.container = memapdict(output_folder)
+        self.container = Container(output_folder, self.__class__.__name__)
         self.start_anonymously = start_anonymously
         self.url = url
         self.__current_url = url
@@ -93,12 +93,16 @@ class LBC(Firefox):
         url = self.__current_url
         self.get(url)
 
-    def run(self, callback):
+    def run(self):
         while True:
             self.log.debug("Getting page info")
             annonces = self.list
             self.log.info(f"Parsed {len(annonces)} elements")
-            callback(annonces)
+
+            for i in annonces:
+                loc = i["location"]
+                loc = loc["lat"], loc["lng"]
+
+                self.container[i["list_id"]] = i
 
             self.got_to_next_page()
-
