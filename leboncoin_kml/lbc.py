@@ -1,5 +1,9 @@
+from datetime import datetime
+
+from googlemaps import Client
 from selenium.common.exceptions import NoSuchElementException, InsecureCertificateException
 
+from leboncoin_kml.config import Config
 from leboncoin_kml.container import Container
 from leboncoin_kml.scrapper import Firefox, FindProxyError, ConnexionError
 
@@ -17,19 +21,17 @@ class WrongUserAgent(Exception):
 
 
 class LBC(Firefox):
-    def __init__(self, url, output_folder, headless=False, start_anonymously=True):
-        super(LBC, self).__init__(headless=headless)
-        self.output_folder = output_folder
-        self.container = Container(output_folder, self.__class__.__name__)
-        self.start_anonymously = start_anonymously
-        self.url = url
-        self.__current_url = url
+    def __init__(self, config=Config()):
+        super(LBC, self).__init__(headless=config.headless, use_proxy_broker=config.use_proxy)
+        self.config = config
+        self.container = Container(config.output_folder, self.__class__.__name__)
+        self.__current_url = config.url
 
     def __enter__(self):
         super(LBC, self).__enter__()
-        if self.start_anonymously:
+        if self.config.start_anonymously:
             self.change_identity()
-        self.get(self.url)
+        self.get(self.config.url)
         return self
 
     @property
@@ -94,15 +96,34 @@ class LBC(Firefox):
         self.get(url)
 
     def run(self):
-        while True:
+        now = datetime.now()
+        finished = False
+        gmap = Client(self.config.google_maps_api_key)
+        res = {}
+
+        while not finished:
             self.log.debug("Getting page info")
             annonces = self.list
             self.log.info(f"Parsed {len(annonces)} elements")
 
             for i in annonces:
+                date = datetime.strptime(i[self.config.date_filter_field], '%Y-%m-%d %H:%M:%S')
+                timedelta = (now - date).total_seconds() / (60 * 60)
+                if timedelta > self.config.scrap_time:
+                    finished = True
+                    break
+                id = i["list_id"]
+                self.container[id] = i
                 loc = i["location"]
-                loc = loc["lat"], loc["lng"]
+                i["directions"] = {}
+                distance_correct = True
+                for k, (limit, kwargs) in self.config.directions.items():
+                    directions = gmap.directions(f'{loc["lat"]},{loc["lng"]}', **kwargs)
+                    i["directions"][k] = directions
+                    duration = directions[0]["legs"][0]["duration"]["value"] / (60)
+                    distance_correct &= duration < limit
 
-                self.container[i["list_id"]] = i
+                if distance_correct:
+                    res[id] = i
 
             self.got_to_next_page()

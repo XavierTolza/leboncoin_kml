@@ -12,3 +12,4 @@ proxylist.txt
 *.log
 *.txt
 output
+secret.py

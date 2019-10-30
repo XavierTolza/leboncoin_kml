@@ -32,14 +32,16 @@ class Firefox(webdriver.Firefox, LoggingClass):
     pref_types = {str: "String", int: "Int", bool: "Bool"}
     ip_finder = re.compile(".+[^\d](\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{1,6}).+")
 
-    def __init__(self, headless=False, timeout=10, enable_cache=False):
+    def __init__(self, headless=False, timeout=10, enable_cache=False, use_proxy_broker=True):
+        self.use_proxy_broker = use_proxy_broker
         options = Options()
         options.headless = headless
         preferences = {i: timeout for i in timeout_settings}
         preferences.update({i: enable_cache for i in "browser.cache.disk.enable,browser.cache.memory."
                                                      "enable,browser.cache.offline.enable," \
                                                      "network.http.use-cache".split(",")})
-        self.broker = PBrocker()
+        if use_proxy_broker:
+            self.broker = PBrocker()
         LoggingClass.__init__(self)
         webdriver.Firefox.__init__(self, options=options)
         self.set_preference(**preferences)
@@ -70,12 +72,14 @@ class Firefox(webdriver.Firefox, LoggingClass):
         return len(self.window_handles)
 
     def __enter__(self):
-        self.broker.__enter__()
+        if self.use_proxy_broker:
+            self.broker.__enter__()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.log.debug("Stopping scrapper")
-        system(f"kill -9 {self.broker.pid}")
+        if self.use_proxy_broker:
+            system(f"kill -9 {self.broker.pid}")
         while len(self.window_handles) > 1:
             self.tab = -1
             self.close_tab()
@@ -98,7 +102,6 @@ class Firefox(webdriver.Firefox, LoggingClass):
             prefs.set%sPref(arguments[0], arguments[1]);
             """
 
-            searchbar = None
             # self.find_element_by_id("warningButton").click()
             # searchbar = self.find_element_by_id("textbox").find_element_by_css_selector("input")
             for key, value in elements.items():
