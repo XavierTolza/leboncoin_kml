@@ -1,10 +1,13 @@
 from datetime import datetime
+from json import dumps
 
 from googlemaps import Client
+from pandas import DataFrame
 from selenium.common.exceptions import NoSuchElementException, InsecureCertificateException
 
 from leboncoin_kml.config import Config
 from leboncoin_kml.container import Container
+from leboncoin_kml.mail import Sender
 from leboncoin_kml.scrapper import Firefox, FindProxyError, ConnexionError
 
 
@@ -18,6 +21,12 @@ class NeedIdentityChange(Exception):
 
 class WrongUserAgent(Exception):
     pass
+
+
+def read_file(filename):
+    with open(filename, "rb") as fp:
+        res = fp.read()
+    return res
 
 
 class LBC(Firefox):
@@ -119,11 +128,41 @@ class LBC(Firefox):
                 distance_correct = True
                 for k, (limit, kwargs) in self.config.directions.items():
                     directions = gmap.directions(f'{loc["lat"]},{loc["lng"]}', **kwargs)
+                    if len(directions) == 0:
+                        directions = gmap.directions(f'{loc["city"]}', **kwargs)
                     i["directions"][k] = directions
-                    duration = directions[0]["legs"][0]["duration"]["value"] / (60)
+                    try:
+                        duration = directions[0]["legs"][0]["duration"]["value"] / (60)
+                    except IndexError:
+                        duration = 0
                     distance_correct &= duration < limit
 
                 if distance_correct:
                     res[id] = i
 
             self.got_to_next_page()
+
+        self.log.info("Finished parsing, sending result")
+
+        # Formatting final Df
+        df = [dict(id=id, description=data["body"],
+                   date_premiere_publication=data["first_publication_date"],
+                   url=data["url"],
+                   ville=data["location"]["city"],
+                   map=f'https://www.google.fr/maps/place/{data["location"]["lat"]},{data["location"]["lng"]}',
+                   PAP=data["owner"]["no_salesmen"], vendeur=data["owner"]["name"],
+                   prix=data["price"][0],
+                   title=data["subject"],
+                   **{k: v[0]["legs"][0]["duration"]["value"] / 60 for k, v in data["directions"].items()}
+                   )
+              for id, data in res.items()]
+        df = DataFrame(df)
+
+        attachments = {"data.json": dumps(res), "data.csv": df.to_csv()}
+        attachments = {k: bytes(v, self.config.encoding) for k, v in attachments.items()}
+        log_file = self.config.log_file
+        if log_file is not None:
+            attachments["log.txt"] = read_file(log_file)
+
+        Sender(self.config)(attachments)
+        self.log.info("Finished run")
