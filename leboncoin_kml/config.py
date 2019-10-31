@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from logging import DEBUG
+from logging import INFO
 
 from attr import dataclass
 from numpy import inf
@@ -12,7 +12,7 @@ tomorrow_str = tomorrow.strftime("%Y-%m-%d")
 
 @dataclass
 class Config(object):
-    log_level = DEBUG
+    log_level = INFO
     log_file = "log.txt"
     url = "https://www.leboncoin.fr/recherche/?category=9&locations=r_16&" \
           "real_estate_type=1&immo_sell_type=old,new&price=min-325000&square=60-max"
@@ -21,7 +21,7 @@ class Config(object):
     headless = True
     output_folder = "/tmp/output"
     start_anonymously = True
-    use_proxy = True
+    use_proxy = start_anonymously
     date_filter_field = "index_date"
     google_maps_api_key = google_maps_api_key
     directions = dict(

@@ -13,3 +13,6 @@ Vous pouvez utiliser [proxybroker](https://github.com/constverum/ProxyBroker) po
 
 # URL de OSMR:
 http://download.geofabrik.de/europe/france-latest.osm.pbf
+
+# Good proxy?
+45.228.242.251:3128

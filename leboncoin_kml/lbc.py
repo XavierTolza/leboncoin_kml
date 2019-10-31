@@ -1,7 +1,9 @@
 from datetime import datetime
 from json import dumps
 
+import googlemaps
 from googlemaps import Client
+from googlemaps.exceptions import TransportError, _OverQueryLimit
 from pandas import DataFrame
 from selenium.common.exceptions import NoSuchElementException, InsecureCertificateException, \
     UnexpectedAlertPresentException
@@ -39,11 +41,11 @@ def read_file(filename):
 
 class LBC(Firefox):
     def __init__(self, config=Config(), previous_result={}):
-        super(LBC, self).__init__(headless=config.headless, use_proxy_broker=config.use_proxy)
         self.config = config
+        self.result = previous_result
         self.container = Container(config.output_folder, self.__class__.__name__)
         self.__current_url = config.url
-        self.result = previous_result
+        super(LBC, self).__init__(headless=config.headless, use_proxy_broker=config.use_proxy)
 
     def __enter__(self):
         super(LBC, self).__enter__()
@@ -82,12 +84,21 @@ class LBC(Firefox):
         res = data[4]["data"]["ads"]
         return res
 
+    def execute(self, *args, **kwargs):
+        try:
+            return super(LBC, self).execute(*args, **kwargs)
+        except UnexpectedAlertPresentException as e:
+            self.log.warning(f"Got error {e}")
+
     def get(self, url):
         success = False
         n_try = 0
         while not success:
             try:
                 n_try += 1
+                if n_try > self.config.maximum_number_retry:
+                    self.log.error("Too many failures. Raising exception")
+                    raise MaximumNumberOfFailures(self.__current_url, self.result, n_try)
                 super(LBC, self).get(url)
                 if self.need_identity_change:
                     raise NeedIdentityChange("Felt into captcha")
@@ -96,14 +107,14 @@ class LBC(Firefox):
                 success = True
             except (NeedIdentityChange, WrongUserAgent,
                     InsecureCertificateException, ConnexionError, FindProxyError, UnexpectedAlertPresentException) as e:
-                if n_try > self.config.maximum_number_retry:
-                    raise MaximumNumberOfFailures(self.__current_url, self.result, n_try)
                 proxy_change = not issubclass(type(e), WrongUserAgent)
                 msg = f"Got error on try {n_try}: {str(e)}. Changing identity"
                 if not proxy_change:
                     msg = msg + " only on user agent"
                 self.warning(msg)
                 self.change_identity(proxy=proxy_change)
+            except (IndexError) as e:
+                self.log.error(f"Got an unkown error: {e.__class__.__name__} {str(e)}. Retry without identity change")
 
     def set_proxy(self, *args, **kwargs):
         super(LBC, self).set_proxy(*args, **kwargs)
@@ -119,46 +130,51 @@ class LBC(Firefox):
 
     def run(self):
         now = datetime.now()
-        finished = False
         gmap = Client(self.config.google_maps_api_key)
         res = self.result
 
-        while not finished:
-            self.log.debug("Getting page info")
-            annonces = self.list
+        try:
+            while True:
+                self.log.debug("Getting page info")
+                annonces = self.list
 
-            n_good_elements = 0
-            for i in annonces:
-                date = datetime.strptime(i[self.config.date_filter_field], '%Y-%m-%d %H:%M:%S')
-                timedelta = (now - date).total_seconds() / (60 * 60)
-                if timedelta > self.config.scrap_time:
-                    finished = True
-                    break
-                id = i["list_id"]
-                keep_record = id not in self.container
-                self.container[id] = i
-                loc = i["location"]
-                i["directions"] = {}
-                for k, (limit, kwargs) in self.config.directions.items():
-                    if not keep_record:
-                        break
-                    directions = gmap.directions(f'{loc["lat"]},{loc["lng"]}', **kwargs)
-                    if len(directions) == 0:
-                        directions = gmap.directions(f'{loc["city"]}', **kwargs)
-                    i["directions"][k] = directions
-                    try:
-                        duration = directions[0]["legs"][0]["duration"]["value"] / (60)
-                    except IndexError:
-                        duration = 0
-                    keep_record &= duration < limit
+                n_good_elements = 0
+                for i in annonces:
+                    date = datetime.strptime(i[self.config.date_filter_field], '%Y-%m-%d %H:%M:%S')
+                    timedelta = (now - date).total_seconds() / (60 * 60)
+                    if timedelta > self.config.scrap_time:
+                        raise FinalPageReached()
+                    id = str(i["list_id"])
+                    keep_record = id not in self.container
+                    self.container[id] = i
+                    loc = i["location"]
+                    i["directions"] = {}
+                    for k, (limit, kwargs) in self.config.directions.items():
+                        if not keep_record:
+                            break
+                        try:
+                            directions = gmap.directions(f'{loc["lat"]},{loc["lng"]}', **kwargs)
+                            if len(directions) == 0:
+                                directions = gmap.directions(f'{loc["city"]}', **kwargs)
+                            i["directions"][k] = directions
+                            duration = directions[0]["legs"][0]["duration"]["value"] / (60)
+                        except (IndexError, TransportError, googlemaps.exceptions.Timeout) as e:
+                            self.log.error("Failed to find distance for element "
+                                           "%s: %s %s" % (id, e.__class__.__name__, str(e)))
+                            duration = 0
+                        keep_record &= duration < limit
 
-                if keep_record:
-                    n_good_elements += 1
-                    res[id] = i
-
-            self.log.info(f"Parsed {len(annonces)} elements. {n_good_elements} elements passed the filters,"
-                          f" the lastest one was posted %.0f hours ago" % timedelta)
-            self.got_to_next_page()
+                    if keep_record:
+                        n_good_elements += 1
+                        res[id] = i
+                timedelta = "%.2f" % timedelta
+                self.log.info(f"Parsed {len(annonces)} elements. {n_good_elements} elements passed the filters,"
+                              f" the lastest one was posted {timedelta} hours ago")
+                self.got_to_next_page()
+        except FinalPageReached:
+            pass
+        except _OverQueryLimit as e:
+            self.log.critical("Google maps API no longer working: %s" % str(e))
 
         self.log.info("Finished parsing, sending result")
 
