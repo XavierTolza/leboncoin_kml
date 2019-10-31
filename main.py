@@ -15,8 +15,8 @@ def main():
     finished = False
     previous_result = {}
     while not finished:
+        d = LBC(conf, previous_result=previous_result)
         try:
-            d = LBC(conf, previous_result=previous_result)
             with d:
                 d.run()
             finished = True
@@ -24,6 +24,11 @@ def main():
             print("Restarting scrapper")
             conf.url = e.last_url
             previous_result = e.result
+        except Exception as e:
+            print(f"General error: {str(e)}")
+            conf.url = d.current_lbc_url
+            previous_result = d.result
+
     print("finished execution")
 
 

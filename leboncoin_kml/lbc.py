@@ -48,6 +48,10 @@ class LBC(Firefox):
         self.__current_url = config.url
         super(LBC, self).__init__(headless=config.headless, use_proxy_broker=config.use_proxy)
 
+    @property
+    def current_lbc_url(self):
+        return self.__current_url
+
     def __enter__(self):
         super(LBC, self).__enter__()
         if self.config.start_anonymously:
@@ -84,12 +88,6 @@ class LBC(Firefox):
         data = self.execute_script("return window.__REDIAL_PROPS__;")
         res = data[4]["data"]["ads"]
         return res
-
-    def execute(self, *args, **kwargs):
-        try:
-            return super(LBC, self).execute(*args, **kwargs)
-        except UnexpectedAlertPresentException as e:
-            self.log.warning(f"Got error {e}")
 
     def get(self, url):
         success = False
