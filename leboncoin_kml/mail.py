@@ -1,9 +1,8 @@
 import smtplib
-from base64 import b64encode
+from email import encoders
+from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from email.mime.base import MIMEBase
-from email import encoders
 
 from leboncoin_kml.config import Config
 
@@ -11,6 +10,15 @@ from leboncoin_kml.config import Config
 class Sender(object):
     def __init__(self, config=Config()):
         self.config = config
+        # creates SMTP session
+        s = smtplib.SMTP('smtp.gmail.com', 587)
+
+        # start TLS for security
+        s.starttls()
+
+        # Authentication
+        s.login(config.email_sender, config.email_password)
+        self.s = s
 
     def __call__(self, attachments):
         conf = self.config
@@ -51,19 +59,11 @@ class Sender(object):
             # attach the instance 'p' to instance 'msg'
             msg.attach(p)
 
-        # creates SMTP session
-        s = smtplib.SMTP('smtp.gmail.com', 587)
-
-        # start TLS for security
-        s.starttls()
-
-        # Authentication
-        s.login(fromaddr, conf.email_password)
-
         # Converts the Multipart msg into a string
         text = msg.as_string()
 
         # sending the mail
+        s = self.s
         s.sendmail(fromaddr, toaddr, text)
 
         # terminating the session

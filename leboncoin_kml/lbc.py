@@ -47,6 +47,7 @@ class LBC(Firefox):
         self.container = Container(config.output_folder, self.__class__.__name__)
         self.__current_url = config.url
         super(LBC, self).__init__(headless=config.headless, use_proxy_broker=config.use_proxy)
+        Sender()  # verify user and password for mail
 
     @property
     def current_lbc_url(self):
