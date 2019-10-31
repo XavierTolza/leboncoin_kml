@@ -3,7 +3,8 @@ from json import dumps
 
 from googlemaps import Client
 from pandas import DataFrame
-from selenium.common.exceptions import NoSuchElementException, InsecureCertificateException
+from selenium.common.exceptions import NoSuchElementException, InsecureCertificateException, \
+    UnexpectedAlertPresentException
 
 from leboncoin_kml.config import Config
 from leboncoin_kml.container import Container
@@ -23,6 +24,13 @@ class WrongUserAgent(Exception):
     pass
 
 
+class MaximumNumberOfFailures(Exception):
+    def __init__(self, last_url, result, n_times):
+        super(MaximumNumberOfFailures, self).__init__("Failed to get page %d times" % n_times)
+        self.result = result
+        self.last_url = last_url
+
+
 def read_file(filename):
     with open(filename, "rb") as fp:
         res = fp.read()
@@ -30,17 +38,18 @@ def read_file(filename):
 
 
 class LBC(Firefox):
-    def __init__(self, config=Config()):
+    def __init__(self, config=Config(), previous_result={}):
         super(LBC, self).__init__(headless=config.headless, use_proxy_broker=config.use_proxy)
         self.config = config
         self.container = Container(config.output_folder, self.__class__.__name__)
         self.__current_url = config.url
+        self.result = previous_result
 
     def __enter__(self):
         super(LBC, self).__enter__()
         if self.config.start_anonymously:
             self.change_identity()
-        self.get(self.config.url)
+        self.get(self.__current_url)
         return self
 
     @property
@@ -86,7 +95,9 @@ class LBC(Firefox):
                     raise WrongUserAgent("Need user agent change")
                 success = True
             except (NeedIdentityChange, WrongUserAgent,
-                    InsecureCertificateException, ConnexionError, FindProxyError) as e:
+                    InsecureCertificateException, ConnexionError, FindProxyError, UnexpectedAlertPresentException) as e:
+                if n_try > self.config.maximum_number_retry:
+                    raise MaximumNumberOfFailures(self.__current_url, self.result, n_try)
                 proxy_change = not issubclass(type(e), WrongUserAgent)
                 msg = f"Got error on try {n_try}: {str(e)}. Changing identity"
                 if not proxy_change:
@@ -110,7 +121,7 @@ class LBC(Firefox):
         now = datetime.now()
         finished = False
         gmap = Client(self.config.google_maps_api_key)
-        res = {}
+        res = self.result
 
         while not finished:
             self.log.debug("Getting page info")

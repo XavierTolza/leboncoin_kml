@@ -17,6 +17,7 @@ class Config(object):
     url = "https://www.leboncoin.fr/recherche/?category=9&locations=r_16&" \
           "real_estate_type=1&immo_sell_type=old,new&price=min-325000&square=60-max"
     scrap_time = 24  # hours
+    maximum_number_retry = 20
     headless = True
     output_folder = "/tmp/output"
     start_anonymously = True
