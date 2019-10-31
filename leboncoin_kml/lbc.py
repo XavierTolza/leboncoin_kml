@@ -87,7 +87,7 @@ class LBC(Firefox):
                     InsecureCertificateException, ConnexionError, FindProxyError) as e:
                 proxy_change = not issubclass(type(e), WrongUserAgent)
                 msg = f"Got error on try {n_try}: {str(e)}. Changing identity"
-                if proxy_change:
+                if not proxy_change:
                     msg = msg + " only on user agent"
                 self.warning(msg)
                 self.change_identity(proxy=proxy_change)
