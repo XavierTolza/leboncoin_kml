@@ -60,9 +60,11 @@ class LBC(Firefox):
         try:
             link = self.next_page_link
             url = link.get_attribute("href")
+            self.info(f"Moving on to {url}")
             self.get(url)
             self.__current_url = url
         except NoSuchElementException:
+            self.info("Final page reached")
             raise FinalPageReached()
 
     @property
@@ -114,7 +116,7 @@ class LBC(Firefox):
             self.log.debug("Getting page info")
             annonces = self.list
 
-            n_good_elements=0
+            n_good_elements = 0
             for i in annonces:
                 date = datetime.strptime(i[self.config.date_filter_field], '%Y-%m-%d %H:%M:%S')
                 timedelta = (now - date).total_seconds() / (60 * 60)
