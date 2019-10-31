@@ -10,6 +10,7 @@ from selenium.common.exceptions import NoSuchElementException, InsecureCertifica
 
 from leboncoin_kml.config import Config
 from leboncoin_kml.container import Container
+from leboncoin_kml.html import HTMLFormatter
 from leboncoin_kml.mail import Sender
 from leboncoin_kml.scrapper import Firefox, FindProxyError, ConnexionError
 
@@ -192,7 +193,8 @@ class LBC(Firefox):
               for id, data in res.items()]
         df = DataFrame(df)
 
-        attachments = {"data.json": dumps(res), "data.csv": df.to_csv()}
+        html_report = HTMLFormatter()(res)
+        attachments = {"data.json": dumps(res), "data.csv": df.to_csv(), "data.html": html_report}
         attachments = {k: bytes(v, self.config.encoding) for k, v in attachments.items()}
         log_file = self.config.log_file
         if log_file is not None:

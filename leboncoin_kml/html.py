@@ -1,10 +1,13 @@
 import json
+from os.path import abspath, join, dirname
 
 from jinja2 import FileSystemLoader, Environment
 
+default_template_folder = join(dirname(abspath(__file__)), "assets")
+
 
 class HTMLFormatter(object):
-    def __init__(self, template_folder="assets", template_name="report_template.html"):
+    def __init__(self, template_folder=default_template_folder, template_name="report_template.html"):
         self.template_name = template_name
         templateLoader = FileSystemLoader(searchpath=template_folder)
         templateEnv = Environment(loader=templateLoader)
