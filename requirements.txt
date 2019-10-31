@@ -6,3 +6,4 @@ proxybroker
 -e easylogger
 -e memapdict
 googlemaps
+jinja2

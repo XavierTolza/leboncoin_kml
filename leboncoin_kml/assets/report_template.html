@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{title}}</title>
+    <style>
+        .container{
+            display: flex;
+        }
+        .imagebox{
+            width: 1000px;
+        }
+        .contentbox{
+            flex-grow: 1;
+        }
+        .desc{
+            font-style: italic;
+        }
+        .directions{
+            width: 1000px;
+        }
+    </style>
+</head>
+<body>
+
+{% for el in elements %}
+<div class="container">
+    <div class="imagebox">
+        <img src="{{el.images.urls_thumb[0]}}">
+    </div>
+    <div class="contentbox">
+        <div class="titlebox">
+            <h3><a href="{{el.url}}">{{el.subject}}</a></h3><br/>
+            {{el.price[0]}} € <br/>
+            <a href="https://www.google.fr/maps/place/{{el.location.lat}},{{el.location.lng}}">{{el.location.city_label}}</a>
+            {{el.index_date}}
+
+        </div>
+        <div class="descbox container">
+            <div class="directions">
+                {% for key, dir in el.directions.items() %}
+                    {{key}} : {{dir[0].legs[0].duration["text"]}}, {{dir[0].legs[0].distance["text"]}}
+                {% endfor %}
+            </div>
+            <div class="desc">
+                {{el.body}}
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+</body>
+</html>
