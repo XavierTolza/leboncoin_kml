@@ -122,11 +122,13 @@ class LBC(Firefox):
                     finished = True
                     break
                 id = i["list_id"]
+                keep_record = id not in self.container
                 self.container[id] = i
                 loc = i["location"]
                 i["directions"] = {}
-                distance_correct = True
                 for k, (limit, kwargs) in self.config.directions.items():
+                    if not keep_record:
+                        break
                     directions = gmap.directions(f'{loc["lat"]},{loc["lng"]}', **kwargs)
                     if len(directions) == 0:
                         directions = gmap.directions(f'{loc["city"]}', **kwargs)
@@ -135,9 +137,9 @@ class LBC(Firefox):
                         duration = directions[0]["legs"][0]["duration"]["value"] / (60)
                     except IndexError:
                         duration = 0
-                    distance_correct &= duration < limit
+                    keep_record &= duration < limit
 
-                if distance_correct:
+                if keep_record:
                     res[id] = i
 
             self.got_to_next_page()
