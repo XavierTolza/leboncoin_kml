@@ -113,8 +113,8 @@ class LBC(Firefox):
         while not finished:
             self.log.debug("Getting page info")
             annonces = self.list
-            self.log.info(f"Parsed {len(annonces)} elements")
 
+            n_good_elements=0
             for i in annonces:
                 date = datetime.strptime(i[self.config.date_filter_field], '%Y-%m-%d %H:%M:%S')
                 timedelta = (now - date).total_seconds() / (60 * 60)
@@ -140,8 +140,11 @@ class LBC(Firefox):
                     keep_record &= duration < limit
 
                 if keep_record:
+                    n_good_elements += 1
                     res[id] = i
 
+            self.log.info(f"Parsed {len(annonces)} elements. {n_good_elements} elements passed the filters,"
+                          f" the lastest one was posted %.0f hours ago" % timedelta)
             self.got_to_next_page()
 
         self.log.info("Finished parsing, sending result")
