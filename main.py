@@ -1,5 +1,6 @@
 from os import remove
 from os.path import isfile
+from traceback import print_tb
 
 from leboncoin_kml.config import Config
 from leboncoin_kml.lbc import LBC, MaximumNumberOfFailures
@@ -26,6 +27,7 @@ def main():
             previous_result = e.result
         except Exception as e:
             print(f"General error: {str(e)}")
+            print_tb()
             conf.url = d.current_lbc_url
             previous_result = d.result
 
