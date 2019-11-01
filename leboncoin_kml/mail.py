@@ -64,7 +64,7 @@ class Sender(object):
 
         # sending the mail
         s = self.s
-        s.sendmail(fromaddr, toaddr, text)
+        s.sendmail(fromaddr, toaddr.split(', '), text)
 
         # terminating the session
         s.quit()
