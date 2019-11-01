@@ -1,9 +1,11 @@
 import json
+from datetime import timedelta, datetime
 from os.path import abspath, join, dirname
 
 from jinja2 import FileSystemLoader, Environment
 
 default_template_folder = join(dirname(abspath(__file__)), "assets")
+import numpy as np
 
 
 class HTMLFormatter(object):
@@ -16,9 +18,45 @@ class HTMLFormatter(object):
     def get_template(self, fname):
         return self.env.get_template(fname)
 
+    def format_duration(self, value):
+        td = timedelta(seconds=value - 3600)
+        date = datetime.fromtimestamp(0) + td
+        res = f"{date.minute}m"
+        if date.hour:
+            res = f"{date.hour}h " + res
+        return res
+
+    def format_price(self, price):
+        return '{:,}'.format(price).replace(',', ' ')
+
     def __call__(self, data):
         temp = self.get_template(self.template_name)
-        res = temp.render(title="Résultats de la recherche", elements=list(data.values()))
+        elements = list(data.values())
+        prices = []
+
+        directions = {}
+
+        for i in elements:
+            i["images"] = list(zip(i["images"]["urls_thumb"], i["images"]["urls"], i["images"]["urls_large"]))
+            price = i["price"][0]
+            prices.append(price)
+            i["price"] = self.format_price(price)
+            i["price_int"] = price
+            for dir_name, v in i["directions"].items():
+                dir_name = dir_name.replace("_", " ").capitalize()
+                if dir_name not in directions:
+                    directions[dir_name] = []
+                directions[dir_name].append(v[0]["legs"][0]["duration"]["value"])
+            i["directions"] = {
+                k.replace("_", " ").capitalize(): dict(text=self.format_duration(v[0]["legs"][0]["duration"]["value"]),
+                                                       value=v[0]["legs"][0]["duration"]["value"])
+                for k, v in i["directions"].items()}
+
+        for k in directions.keys():
+            directions[k] = dict(min=np.min(directions[k]), max=np.max(directions[k]))
+
+        res = temp.render(title="Résultats de la recherche", elements=elements, json=json.dumps(elements),
+                          price_min=np.min(prices), price_max=np.max(prices), directions=directions)
         return res
 
 

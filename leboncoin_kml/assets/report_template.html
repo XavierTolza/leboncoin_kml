@@ -3,52 +3,265 @@
 <head>
     <meta charset="UTF-8">
     <title>{{title}}</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+          integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/10.6.2/css/bootstrap-slider.css">
+
+
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+            integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
+            crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"
+            integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1"
+            crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"
+            integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
+            crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/10.6.2/bootstrap-slider.js"></script>
+
     <style>
-        .container{
-            display: flex;
+        .lbc_titre {
+            box-sizing: border-box;
+            color: rgb(26, 26, 26);
+            cursor: pointer;
+            font-family: OpenSans;
+            font-size: 20px;
+            font-weight: 600;
+            line-height: 24px;
+            list-style-type: none;
+            overflow: hidden;
+            overflow-x: hidden;
+            overflow-y: hidden;
+            pointer-events: auto;
+            text-align: left;
+            transition-delay: 0s;
+            transition-duration: 0.2s;
+            transition-property: all;
+            transition-timing-function: ease-in;
+            vertical-align: top;
+            word-break: break-word;
         }
-        .imagebox{
-            width: 1000px;
+
+        a {
+            color: inherit;
         }
-        .contentbox{
-            flex-grow: 1;
+
+        .price {
+            box-sizing: border-box;
+            color: rgb(245, 107, 42);
+            cursor: pointer;
+            font-family: OpenSans;
+            font-size: 16px;
+            font-weight: 600;
+            line-height: 18px;
+            list-style-type: none;
+            pointer-events: auto;
+            text-align: left;
         }
-        .desc{
-            font-style: italic;
+
+        .carousel-item {
+            padding-top: 0.8cm;
         }
-        .directions{
-            width: 1000px;
+
+        .card-body {
+            margin-bottom: 10px;
+            margin-left: 10px;
+            padding-bottom: 10px;
+            padding-top: 10px;
+            margin-right: 10px;
+        }
+
+        p.collapse:not(.show)[aria-expanded="false"] {
+            display: block;
+            height: 4cm !important;
+            overflow: hidden;
+        }
+
+        p.collapsing[aria-expanded="false"] {
+            height: 4cm !important;
+        }
+
+        a[data-toggle="collapse"].collapsed:after {
+            content: '+ Plus d\'infos';
+        }
+
+        a[data-toggle="collapse"]:not(.collapsed):after {
+            content: '- Plus d\'infos';
+        }
+
+        .sticky-top {
+            position: -webkit-sticky;
+            position: sticky;
+            top: 0;
+            z-index: 1020;
+            background-color: white;
         }
     </style>
 </head>
 <body>
 
-{% for el in elements %}
-<div class="container">
-    <div class="imagebox">
-        <img src="{{el.images.urls_thumb[0]}}">
-    </div>
-    <div class="contentbox">
-        <div class="titlebox">
-            <h3><a href="{{el.url}}">{{el.subject}}</a></h3><br/>
-            {{el.price[0]}} € <br/>
-            <a href="https://www.google.fr/maps/place/{{el.location.lat}},{{el.location.lng}}">{{el.location.city_label}}</a>
-            {{el.index_date}}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="page-header sticky-top">
+                <h1>
+                    LeBonCoin ! <small>Rapport des nouvelles annonces</small>
+                </h1>
 
-        </div>
-        <div class="descbox container">
-            <div class="directions">
-                {% for key, dir in el.directions.items() %}
-                    {{key}} : {{dir[0].legs[0].duration["text"]}}, {{dir[0].legs[0].distance["text"]}}
+                <!-- Sliders pour le prix-->
+                <div class="slider-container">
+                    Prix: <b style="margin-right: 10px"><span id="prixmin">{{price_min}}</span>€</b>
+
+                    <input id="ex2" type="text" class="span2" value=""
+                           data-slider-min="{{price_min}}" data-slider-max="{{price_max}}"
+                           data-slider-step="{{(price_max-price_min)/1000}}"
+                           data-slider-value="[{{price_min}},{{price_max}}]"
+                    />
+                    <b style="margin-left: 10px"><span id="prixmax">{{price_max}}</span>€</b>
+                </div>
+
+                <!-- Sliders pour la distance -->
+                {% for dirname, dirval in directions.items() %}
+                <div class="slider-container">
+                {{dirname}}: <b style="margin-right: 10px"><span id="{{dirname|replace(" ", "_")}}_min">{{"%.0f"|format(dirval.min/60)}}</span>min</b>
+                    <input id="slider_{{dirname|replace(" ", "_")}}" type="text" class="span2" value=""
+                       data-slider-min="{{dirval.min}}" data-slider-max="{{dirval.max}}"
+                       data-slider-step="{{(dirval.max-dirval.min)/1000}}"
+                       data-slider-value="[{{dirval.min}},{{dirval.max}}]"
+                />
+                    <b style="margin-left: 10px"><span id="{{dirname|replace(" ", "_")}}_max">{{"%.0f"|format(dirval.max/60)}}</span>min</b>
+                </div>
                 {% endfor %}
+
+
             </div>
-            <div class="desc">
-                {{el.body}}
+            {% for el in elements %}
+            <div class="row card-body rounded border" id="{{el.list_id}}">
+                <div class="col-md-2">
+
+                    <!-- Carousel-->
+                    <div id="carousel_{{el.list_id}}" class="carousel slide" data-ride="carousel">
+                        <ol class="carousel-indicators">
+                            {% for mini,url,large in el.images %}
+                            <li data-target="#carousel_{{el.list_id}}" data-slide-to="{{loop.index0}}" {% if
+                                loop.index0== 0 %} class="active" {% endif %}}></li>
+                            {% endfor %}
+                        </ol>
+                        <div class="carousel-inner">
+                            {% for mini,url,large in el.images %}
+                            <div class="carousel-item {% if loop.index0 == 0 %} active {% endif %}}">
+                                <a href="{{large}}" target="_blank"><img class="d-block w-100 lbc_image"
+                                                                         style="height: 176px; overflow: hidden"
+                                                                         src="{{url}}"></a>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <a class="carousel-control-prev" href="#carousel_{{el.list_id}}" role="button"
+                           data-slide="prev">
+                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                            <span class="sr-only">Previous</span>
+                        </a>
+                        <a class="carousel-control-next" href="#carousel_{{el.list_id}}" role="button"
+                           data-slide="next">
+                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                            <span class="sr-only">Next</span>
+                        </a>
+                    </div>
+
+
+                </div>
+                <div class="col-md-9">
+                    <div class="row">
+                        <h3 class="lbc_titre"><a href="{{el.url}}" target="_blank">{{el.subject}}</a></h3>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-2">
+                            <h4 class="price">{{el.price}} €</h4>
+
+                            <address>
+                                <strong>
+                                    <a href="https://www.google.fr/maps/place/{{el.location.lat}},{{el.location.lng}}"
+                                       target="_blank">
+                                        {{el.location.city_label}}
+                                    </a>
+                                </strong><br/>
+                                {% for name,duration in el.directions.items() %}
+                                {{name}}: {{duration.text}}<br/>
+                                {% endfor %}
+                            </address>
+                        </div>
+                        <div class="col-md-10">
+                            <p class="collapse" id="collapse-{{el.list_id}}" aria-expanded="false">{{el.body}}</p>
+                            <a role="button" class="collapsed" data-toggle="collapse" href="#collapse-{{el.list_id}}"
+                               aria-expanded="false" aria-controls="collapseExample"></a>
+                        </div>
+                    </div>
+                </div>
             </div>
+            {% endfor %}
         </div>
     </div>
 </div>
-{% endfor %}
 
+<script>
+
+    var data = {{json}}
+
+    var hide_settings={
+        prixmin:{{price_min}},prixmax:{{price_max}},
+    {% for dirname, dirval in directions.items() %}
+        {{dirname|replace(" ", "_")}}_min:{{dirval.min}},{{dirname|replace(" ", "_")}}_max:{{dirval.max}},
+    {% endfor %}
+    };
+
+    function update_hide() {
+        for (var i = 0; i < data.length; i++) {
+            var price = data[i].price_int;
+            {% for dirname, dirval in directions.items() %}
+            var duration_{{dirname|replace(" ", "_")}} = data[i].directions["{{dirname}}"].value;
+            {% endfor %}
+
+            if (price > hide_settings.prixmax || price < hide_settings.prixmin
+            {% for dirname, dirval in directions.items() %}
+                || duration_{{dirname|replace(" ", "_")}}>hide_settings.{{dirname|replace(" ", "_")}}_max || duration_{{dirname|replace(" ", "_")}} < hide_settings.{{dirname|replace(" ", "_")}}_min
+            {% endfor %}
+            ) {
+                $("#" + data[i].list_id.toString()).hide()
+            } else {
+                $("#" + data[i].list_id.toString()).show()
+            }
+        }
+    }
+
+    var priceslider = $("#ex2").slider({});
+    priceslider.on("change", function (value) {
+        var valmin = value.value.newValue[0];
+        $("#prixmin").html(valmin);
+        var valmax = value.value.newValue[1];
+        $("#prixmax").html(valmax);
+
+        hide_settings.prixmin=valmin;
+        hide_settings.prixmax=valmax;
+
+        update_hide();
+
+    });
+
+
+    {% for dirname, dirval in directions.items() %}
+    $("#slider_{{dirname|replace(" ", "_")}}").slider({}).on("change", function (value) {
+        var val = value.value.newValue;
+        hide_settings.{{dirname|replace(" ", "_")}}_min = val[0];
+        hide_settings.{{dirname|replace(" ", "_")}}_max = val[1];
+
+        $("#{{dirname|replace(" ", "_")}}_min").html(Math.round(val[0]/60));
+        $("#{{dirname|replace(" ", "_")}}_max").html(Math.round(val[1]/60));
+
+        update_hide();
+    });
+    {% endfor %}
+
+</script>
 </body>
 </html>
