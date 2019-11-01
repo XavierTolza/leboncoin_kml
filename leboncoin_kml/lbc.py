@@ -48,7 +48,7 @@ class LBC(Firefox):
         self.__current_url = config.url
         super(LBC, self).__init__(headless=config.headless, use_proxy_broker=config.use_proxy)
         Sender()  # verify user and password for mail
-        self.log.info(f"Created LB scrapper with start url {len(previous_result)} elements in previous result "
+        self.log.info(f"Created LB scrapper with {len(previous_result)} elements in previous result "
                       f"and start url {config.url}")
 
     @property
