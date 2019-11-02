@@ -1,5 +1,6 @@
 from datetime import datetime
 from json import dumps
+from lzma import compress
 
 import googlemaps
 from googlemaps import Client
@@ -197,6 +198,7 @@ class LBC(Firefox):
         html_report = HTMLFormatter()(res)
         attachments = {"data.json": dumps(res), "data.csv": df.to_csv(), "data.html": html_report}
         attachments = {k: bytes(v, self.config.encoding) for k, v in attachments.items()}
+        attachments["last_page.html.xz"] = compress(bytes(self.page_source, self.config.encoding))
         log_file = self.config.log_file
         if log_file is not None:
             attachments["log.txt"] = read_file(log_file)
