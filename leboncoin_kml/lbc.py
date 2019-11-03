@@ -2,9 +2,6 @@ from datetime import datetime
 from json import dumps
 from lzma import compress
 
-import googlemaps
-from googlemaps import Client
-from googlemaps.exceptions import TransportError, _OverQueryLimit
 from pandas import DataFrame
 from selenium.common.exceptions import NoSuchElementException, InsecureCertificateException, \
     UnexpectedAlertPresentException
@@ -13,6 +10,7 @@ from leboncoin_kml.config import Config
 from leboncoin_kml.container import Container
 from leboncoin_kml.html import HTMLFormatter
 from leboncoin_kml.mail import Sender
+from leboncoin_kml.route import Client
 from leboncoin_kml.scrapper import Firefox, FindProxyError, ConnexionError
 
 
@@ -51,6 +49,7 @@ class LBC(Firefox):
         Sender()  # verify user and password for mail
         self.log.info(f"Created LB scrapper with {len(previous_result)} elements in previous result "
                       f"and start url {config.url}")
+        self.router = Client(config)
 
     @property
     def current_lbc_url(self):
@@ -137,7 +136,6 @@ class LBC(Firefox):
 
     def run(self):
         now = datetime.now()
-        gmap = Client(self.config.google_maps_api_key)
         res = self.result
 
         try:
@@ -160,12 +158,12 @@ class LBC(Firefox):
                         if not keep_record:
                             break
                         try:
-                            directions = gmap.directions(f'{loc["lat"]},{loc["lng"]}', **kwargs)
+                            directions = self.router.directions(f'{loc["lat"]},{loc["lng"]}', **kwargs)
                             if len(directions) == 0:
-                                directions = gmap.directions(f'{loc["city"]}', **kwargs)
+                                directions = self.router.directions(f'{loc["city"]}', **kwargs)
                             i["directions"][k] = directions
                             duration = directions[0]["legs"][0]["duration"]["value"] / (60)
-                        except (IndexError, TransportError, googlemaps.exceptions.Timeout) as e:
+                        except (IndexError) as e:
                             self.log.error("Failed to find distance for element "
                                            "%s: %s %s" % (id, e.__class__.__name__, str(e)))
                             duration = 0
@@ -180,8 +178,6 @@ class LBC(Firefox):
                 self.got_to_next_page()
         except FinalPageReached:
             pass
-        except _OverQueryLimit as e:
-            self.log.critical("Google maps API no longer working: %s" % str(e))
 
         self.log.info("Finished parsing, sending result")
 

@@ -20,10 +20,11 @@ class Config(object):
     maximum_number_retry = 20
     headless = True
     output_folder = "/tmp/output"
-    start_anonymously = True
+    start_anonymously = headless
     use_proxy = start_anonymously
     date_filter_field = "index_date"
     google_maps_api_key = google_maps_api_key
+    openroute_api_key = openroute_api_key
     directions = dict(
         boulot_velo=(inf, dict(
             destination=work,
