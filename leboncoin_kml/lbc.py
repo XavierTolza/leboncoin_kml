@@ -73,7 +73,11 @@ class LBC(Firefox):
 
     @property
     def next_page_link(self):
-        res = self.find_element_by_name("chevronright").find_element_by_xpath("./..")
+        try:
+            res = self.find_element_by_name("chevronright").find_element_by_xpath("./..")
+        except NoSuchElementException:
+            self.log.warning("Next page not found, trying backup option")
+            res = self.find_element_by_css_selector("nav div ul li span").find_element_by_xpath("./../following::li/a")
         return res
 
     def got_to_next_page(self):
