@@ -2,6 +2,7 @@ from datetime import datetime
 from json import dumps
 from lzma import compress
 
+from googlemaps.exceptions import _OverQueryLimit
 from pandas import DataFrame
 from selenium.common.exceptions import NoSuchElementException, InsecureCertificateException, \
     UnexpectedAlertPresentException
@@ -10,7 +11,6 @@ from leboncoin_kml.config import Config
 from leboncoin_kml.container import Container
 from leboncoin_kml.html import HTMLFormatter
 from leboncoin_kml.mail import Sender
-from leboncoin_kml.route import Client
 from leboncoin_kml.scrapper import Firefox, FindProxyError, ConnexionError
 
 
@@ -178,30 +178,60 @@ class LBC(Firefox):
                 self.got_to_next_page()
         except FinalPageReached:
             pass
+        except _OverQueryLimit as e:
+            self.log.critical("Google maps API no longer working: %s" % str(e))
+        except KeyError as e:
+            self.log.critical(f"Aborting parsing: {type(e).__name__}: {str(e)}")
 
         self.log.info("Finished parsing, sending result")
 
-        # Formatting final Df
-        df = [dict(id=id, description=data["body"],
-                   date_premiere_publication=data["first_publication_date"],
-                   url=data["url"],
-                   ville=data["location"]["city"],
-                   map=f'https://www.google.fr/maps/place/{data["location"]["lat"]},{data["location"]["lng"]}',
-                   PAP=data["owner"]["no_salesmen"], vendeur=data["owner"]["name"],
-                   prix=data["price"][0],
-                   title=data["subject"],
-                   **{k: v[0]["legs"][0]["duration"]["value"] / 60 for k, v in data["directions"].items()}
-                   )
-              for id, data in res.items()]
-        df = DataFrame(df)
+        attachments = {}
 
-        html_report = HTMLFormatter()(res)
-        attachments = {"data.json": dumps(res), "data.csv": df.to_csv(), "data.html": html_report}
-        attachments = {k: bytes(v, self.config.encoding) for k, v in attachments.items()}
-        attachments["last_page.html.xz"] = compress(bytes(self.page_source, self.config.encoding))
-        log_file = self.config.log_file
-        if log_file is not None:
-            attachments["log.txt"] = read_file(log_file)
+        try:
+            attachments["data.json"] = dumps(res)
+        except Exception as e:
+            self.log.error(f"Failed to add data.json: {type(e).__name__}: {str(e)}")
+
+        try:
+            # Formatting final Df
+            df = [dict(id=id, description=data["body"],
+                       date_premiere_publication=data["first_publication_date"],
+                       url=data["url"],
+                       ville=data["location"]["city"],
+                       map=f'https://www.google.fr/maps/place/{data["location"]["lat"]},{data["location"]["lng"]}',
+                       PAP=data["owner"]["no_salesmen"], vendeur=data["owner"]["name"],
+                       prix=data["price"][0],
+                       title=data["subject"],
+                       **{k: v[0]["legs"][0]["duration"]["value"] / 60 for k, v in data["directions"].items()}
+                       )
+                  for id, data in res.items()]
+            df = DataFrame(df)
+            attachments["data.csv"] = df.to_csv()
+        except Exception as e:
+            self.log.error(f"Failed to add data.csv: {type(e).__name__}: {str(e)}")
+
+        try:
+            html_report = HTMLFormatter()(res)
+            attachments["data.html"] = html_report
+        except Exception as e:
+            self.log.error(f"Failed to add data.html: {type(e).__name__}: {str(e)}")
+
+        try:
+            attachments = {k: bytes(v, self.config.encoding) for k, v in attachments.items()}
+        except Exception as e:
+            self.log.error(f"Failed to convert attachments to bytes")
+
+        try:
+            attachments["last_page.html.xz"] = compress(bytes(self.page_source, self.config.encoding))
+        except Exception as e:
+            self.log.error(f"Failed to add last_page.html.xz: {type(e).__name__}: {str(e)}")
+
+        try:
+            log_file = self.config.log_file
+            if log_file is not None:
+                attachments["log.txt"] = read_file(log_file)
+        except Exception as e:
+            self.log.error(f"Failed to add log.txt: {type(e).__name__}: {str(e)}")
 
         Sender(self.config)(attachments)
         self.log.info("Finished run")
