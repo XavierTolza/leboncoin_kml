@@ -11,6 +11,7 @@ from leboncoin_kml.config import Config
 from leboncoin_kml.container import Container
 from leboncoin_kml.html import HTMLFormatter
 from leboncoin_kml.mail import Sender
+from leboncoin_kml.route import Client
 from leboncoin_kml.scrapper import Firefox, FindProxyError, ConnexionError
 
 
