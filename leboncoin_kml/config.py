@@ -42,3 +42,4 @@ class Config(object):
     email_sender = email_sender
     email_password = email_password
     encoding = "utf-8"
+    skip_elements_already_in_bdd = False

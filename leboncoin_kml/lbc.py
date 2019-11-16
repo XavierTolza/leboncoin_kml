@@ -164,7 +164,7 @@ class LBC(Firefox):
                     if timedelta > self.config.scrap_time:
                         raise FinalPageReached()
                     id = str(i["list_id"])
-                    keep_record = id not in self.container
+                    keep_record = id not in self.container if self.config.skip_elements_already_in_bdd else True
                     self.container[id] = i
                     loc = i["location"]
                     i["directions"] = {}
