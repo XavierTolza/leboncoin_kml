@@ -27,6 +27,14 @@ class WrongUserAgent(Exception):
     pass
 
 
+class LBCError(Exception):
+    def __init__(self, msg, **info):
+        super(LBCError, self).__init__(msg)
+        import traceback
+        self.trace = traceback.format_exc()
+        self.info = dict(trace=self.trace, **info)
+
+
 class MaximumNumberOfFailures(Exception):
     def __init__(self, last_url, result, n_times):
         super(MaximumNumberOfFailures, self).__init__("Failed to get page %d times" % n_times)
@@ -93,8 +101,13 @@ class LBC(Firefox):
 
     @property
     def list(self):
-        data = self.execute_script("return window.__REDIAL_PROPS__;")
-        res = data[4]["data"]["ads"]
+        data = None
+        try:
+            data = self.execute_script("return window.__REDIAL_PROPS__;")
+            res = data[4]["data"]["ads"]
+        except Exception:
+            raise LBCError("Failed finding list of items", data=bytes(dumps(data), self.config.encoding),
+                           page_source=bytes(self.page_source, self.config.encoding))
         return res
 
     def get(self, url):

@@ -20,7 +20,10 @@ class Sender(object):
         s.login(config.email_sender, config.email_password)
         self.s = s
 
-    def __call__(self, attachments):
+    def __call__(self, attachments, subject="Nouvelles annonces LBC", body=None):
+        if body is None:
+            body = "En pièce jointe, veuillez trouver les nouvelles annonces correspondant à vos critères"
+
         conf = self.config
         fromaddr = conf.email_sender
         toaddr = conf.email_receivers
@@ -35,10 +38,7 @@ class Sender(object):
         msg['To'] = toaddr
 
         # storing the subject
-        msg['Subject'] = "Nouvelles annonces LBC"
-
-        # string to store the body of the mail
-        body = "En pièce jointe, veuillez trouver les nouvelles annonces correspondant à vos critères"
+        msg['Subject'] = subject
 
         # attach the body with the msg instance
         msg.attach(MIMEText(body, 'plain'))
