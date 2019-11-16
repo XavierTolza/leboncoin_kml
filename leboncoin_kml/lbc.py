@@ -104,9 +104,13 @@ class LBC(Firefox):
         data = None
         try:
             data = self.execute_script("return window.__REDIAL_PROPS__;")
-            res = data[4]["data"]["ads"]
-        except Exception:
-            raise LBCError("Failed finding list of items", data=bytes(dumps(data), self.config.encoding),
+            for i in data:
+                if type(i) == dict and "data" in i and "ads" in i["data"]:
+                    return i["data"]["ads"]
+            raise ValueError("Failed to find the data in the data container")
+        except Exception as e:
+            raise LBCError("Failed finding list of items: %s" % str(e),
+                           data=bytes(dumps(data), self.config.encoding),
                            page_source=bytes(self.page_source, self.config.encoding))
         return res
 
