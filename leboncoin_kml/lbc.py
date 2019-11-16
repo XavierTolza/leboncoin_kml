@@ -104,7 +104,7 @@ class LBC(Firefox):
         data = None
         try:
             data = self.execute_script("return window.__REDIAL_PROPS__;")
-            for i in data:
+            for i in data[::-1]:
                 if type(i) == dict and "data" in i and "ads" in i["data"]:
                     return i["data"]["ads"]
             raise ValueError("Failed to find the data in the data container")
