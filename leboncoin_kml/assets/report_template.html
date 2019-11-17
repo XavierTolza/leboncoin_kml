@@ -142,13 +142,13 @@
                 <!-- Sliders autre-->
                 {% for s in sliders %}
                 <div class="slider-container">
-                {{s.name}}: <b style="margin-right: 10px"><span id="{{s.id}}_min">{{"%.0f"|format(s.min)}}</span>{{s.unit}}</b>
+                {{s.name}}: <b style="margin-right: 10px"><span id="{{s.id}}_min">{{"%%.%df"|format(s.precision)|format(s.min)}}</span>{{s.unit}}</b>
                     <input id="slider_{{s.id}}" type="text" class="span2" value=""
                        data-slider-min="{{s.min}}" data-slider-max="{{s.max}}"
                        data-slider-step="{{s.step}}"
                        data-slider-value="[{{s.min}},{{s.max}}]"
                 />
-                    <b style="margin-left: 10px"><span id="{{s.id}}_max">{{"%.0f"|format(s.max)}}</span>{{s.unit}}</b>
+                    <b style="margin-left: 10px"><span id="{{s.id}}_max">{{"%%.%df"|format(s.precision)|format(s.max)}}</span>{{s.unit}}</b>
                 </div>
                 {% endfor %}
 
@@ -208,7 +208,7 @@
                                 {{name}}: {{duration.text}}<br/>
                                 {% endfor %}
                                 {% for s in sliders %}
-                                {% if el.sliders[s.id] is not none %}
+                                {% if el.sliders[s.id] is not none and s.display %}
                                 {{s.name}}: {{el.sliders[s.id]|round|int}}{{s.unit}}<br/>
                                 {% endif %}
                                 {% endfor %}
@@ -249,7 +249,7 @@
             var duration_{{dirname|replace(" ", "_")}} = data[i].directions["{{dirname}}"].value;
             {% endfor %}
             {% for s in sliders %}
-            var slider_{{s.id}} = data[i].{{s.id}};
+            var slider_{{s.id}} = data[i].sliders.{{s.id}};
             {% endfor %}
 
             // Check conditions
@@ -258,7 +258,7 @@
                 || duration_{{dirname|replace(" ", "_")}}>hide_settings.{{dirname|replace(" ", "_")}}_max || duration_{{dirname|replace(" ", "_")}} < hide_settings.{{dirname|replace(" ", "_")}}_min
             {% endfor %}
             {% for s in sliders %}
-                || slider_{{s.id}}>hide_settings.{{s.id}}_max || slider_{{s.id}} < hide_settings.{{s.id}}_min
+                || ((slider_{{s.id}}>hide_settings.{{s.id}}_max || slider_{{s.id}} < hide_settings.{{s.id}}_min) && slider_{{s.id}} !== null)
             {% endfor %}
             ) {
                 $("#" + data[i].list_id.toString()).hide()
@@ -302,8 +302,8 @@
         hide_settings.{{s.id}}_min = val[0];
         hide_settings.{{s.id}}_max = val[1];
 
-        $("#{{s.id}}_min").html(Math.round(val[0]));
-        $("#{{s.id}}_max").html(Math.round(val[1]));
+        $("#{{s.id}}_min").html(val[0].toFixed({{s.precision}}));
+        $("#{{s.id}}_max").html(val[1].toFixed({{s.precision}}));
 
         update_hide();
     });

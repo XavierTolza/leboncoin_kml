@@ -49,14 +49,20 @@ class HTMLFormatter(object):
 
         directions = {}
 
-        terrain = np.array([j["valeur"] if j is not None else np.nan for j in (i.surface_terrain for i in elements)])
-        jardin = np.array([j["valeur"] if j is not None else np.nan for j in (i.surface_jardin for i in elements)])
         sliders = [
-            dict(name="Surface jardin", min=np.nanmin(jardin), max=np.nanmax(jardin), step=10, unit="m²",
-                 id="surf_jardin", func=extract_surface("surface_jardin")),
-            dict(name="Surface terrain", min=np.nanmin(terrain), max=np.nanmax(terrain), step=10, unit="m²",
-                 id="surf_terrain", func=extract_surface("surface_terrain"))
+            dict(name="Surface jardin", step=10, unit="m²", id="surf_jardin", func=extract_surface("surface_jardin")),
+            dict(name="Surface terrain", step=10, unit="m²", id="surf_terrain",
+                 func=extract_surface("surface_terrain")),
+            dict(name="Latitude", step=0.001, unit="°", id="lat", func=lambda x: x.latlng[0], precision=4,display=False),
+            dict(name="Longitude", step=0.001, unit="°", id="lng", func=lambda x: x.latlng[1], precision=4,display=False)
         ]
+        for i in sliders:
+            i["min"] = np.inf
+            i["max"] = -np.inf
+            if "precision" not in i:
+                i["precision"] = 0
+            if "display" not in i:
+                i["display"] = True
 
         for i in elements:
             i["images"] = list(zip(i.images_thumb, i.images_mini, i.images_large))
@@ -76,7 +82,11 @@ class HTMLFormatter(object):
 
             i["sliders"] = {}
             for slider in sliders:
-                i["sliders"][slider["id"]] = slider["func"](i)
+                val = slider["func"](i)
+                i["sliders"][slider["id"]] = val
+                if val is not None:
+                    slider["min"] = min(slider["min"], val)
+                    slider["max"] = max(slider["max"], val)
 
         for k in directions.keys():
             directions[k] = dict(min=np.min(directions[k]), max=np.max(directions[k]))
