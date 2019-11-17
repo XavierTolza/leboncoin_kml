@@ -1,6 +1,7 @@
 from datetime import datetime
 from json import dumps
 from lzma import compress
+from time import sleep
 
 from googlemaps.exceptions import _OverQueryLimit
 from pandas import DataFrame
@@ -55,7 +56,8 @@ class LBC(Firefox):
         self.result = previous_result
         self.container = Container(config.output_folder, self.__class__.__name__)
         self.__current_url = config.url
-        super(LBC, self).__init__(headless=config.headless, use_proxy_broker=config.use_proxy)
+        super(LBC, self).__init__(headless=config.headless, use_proxy_broker=config.use_proxy,
+                                  timeout=config.loading_timeout)
         Sender()  # verify user and password for mail
         self.log.info(f"Created LB scrapper with {len(previous_result)} elements in previous result "
                       f"and start url {config.url}")
@@ -68,6 +70,9 @@ class LBC(Firefox):
     def __enter__(self):
         super(LBC, self).__enter__()
         if self.config.start_anonymously:
+            self.log.debug("Waiting for proxy brocker to get proxies")
+            while self.broker.data.qsize() < 2:
+                sleep(1)
             self.change_identity()
         self.get(self.__current_url)
         return self

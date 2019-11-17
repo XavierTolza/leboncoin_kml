@@ -18,7 +18,8 @@ class Config(object):
           "real_estate_type=1&immo_sell_type=old,new&price=min-325000&square=60-max"
     scrap_time = 25  # hours
     maximum_number_retry = 20
-    headless = False
+    loading_timeout = 5  # sec
+    headless = True
     output_folder = "/tmp/output"
     start_anonymously = headless
     use_proxy = start_anonymously

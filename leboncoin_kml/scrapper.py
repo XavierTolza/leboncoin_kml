@@ -36,6 +36,7 @@ class Firefox(webdriver.Firefox, LoggingClass):
         self.use_proxy_broker = use_proxy_broker
         options = Options()
         options.headless = headless
+        self.timeout = timeout
         preferences = {i: timeout for i in timeout_settings}
         preferences.update({i: enable_cache for i in "browser.cache.disk.enable,browser.cache.memory."
                                                      "enable,browser.cache.offline.enable," \
@@ -43,7 +44,10 @@ class Firefox(webdriver.Firefox, LoggingClass):
         if use_proxy_broker:
             self.broker = PBrocker()
         LoggingClass.__init__(self)
-        webdriver.Firefox.__init__(self, options=options)
+        fp = webdriver.FirefoxProfile()
+        fp.set_preference("http.response.timeout", timeout)
+        fp.set_preference("dom.max_script_run_time", timeout)
+        webdriver.Firefox.__init__(self, options=options, firefox_profile=fp)
         self.set_preference(**preferences)
 
     def new_tab(self, url=None):
@@ -164,7 +168,7 @@ class Firefox(webdriver.Firefox, LoggingClass):
 
     def generate_proxy(self):
         queue = self.broker.data
-        res = queue.get(timeout=10)
+        res = queue.get(timeout=self.timeout)
         return res
 
     def change_identity(self, proxy=True, user_agent=True):
