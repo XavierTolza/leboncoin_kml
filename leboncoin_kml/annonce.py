@@ -1,4 +1,6 @@
+import re
 from datetime import datetime
+
 import numpy as np
 
 
@@ -51,6 +53,32 @@ class Annonce(dict):
     @property
     def images_large(self):
         return self.__get_images("urls_large,urls,urls_thumb".split(','))
+
+    def __get_surface(self, elements):
+        body = self["body"].replace("\n", "").replace("\r", "").lower()
+        r = f'.*({"|".join(elements)})([a-z éè]{3, 20})?( de| d\'environ| ?: ?)? ?([0-9]+) ?m(²|2).*'
+        match = re.match(r, body)
+        res = None
+        if match is not None:
+            groups = match.groups()
+            res = {k: t(groups[i]) for k, i, t in zip("type,valeur".split(","), [0, -2], (str, float))}
+        return res
+
+    @property
+    def surface_terrain(self):
+        return self.__get_surface("terrain,parcelle".split(","))
+
+    @property
+    def surface_jardin(self):
+        return self.__get_surface("jardin,jardinet,potager".split(","))
+
+    @property
+    def a_construire(self):
+        body = self["body"].replace("\n", "").replace("\r", "").lower()
+        r = ".*(a|à|projet)( de)? (construire|construction).*"
+        match = re.match(r, body)
+        res = match is not None
+        return res
 
 
 class Location(dict):

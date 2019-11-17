@@ -39,7 +39,7 @@ class Config(object):
 
     )
     filters = [
-        lambda x: x.latlng[0] < 43.597221
+        lambda x: (x.latlng[0] < 43.597221 and not x.a_construire)
     ]
     email_receivers = email_dest
     email_sender = email_sender
