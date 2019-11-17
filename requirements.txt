@@ -8,3 +8,4 @@ proxybroker
 googlemaps
 jinja2
 openrouteservice
+requests
