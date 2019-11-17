@@ -38,6 +38,9 @@ class Config(object):
         ))
 
     )
+    filters = [
+        lambda x: x.latlng[0] < 43.597221
+    ]
     email_receivers = email_dest
     email_sender = email_sender
     email_password = email_password

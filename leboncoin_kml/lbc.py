@@ -177,6 +177,8 @@ class LBC(Firefox):
                         raise FinalPageReached()
                     id = str(i["list_id"])
                     keep_record = id not in self.container if self.config.skip_elements_already_in_bdd else True
+                    for filter in self.config.filters:
+                        keep_record &= filter(i)
                     self.container[id] = i
                     loc = i["location"]
                     i["directions"] = {}
