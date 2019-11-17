@@ -97,6 +97,11 @@
             z-index: 1020;
             background-color: white;
         }
+
+        .slider-container{
+            display: inline-block;
+            width: 13cm;
+        }
     </style>
 </head>
 <body>
@@ -131,6 +136,19 @@
                        data-slider-value="[{{dirval.min}},{{dirval.max}}]"
                 />
                     <b style="margin-left: 10px"><span id="{{dirname|replace(" ", "_")}}_max">{{"%.0f"|format(dirval.max/60)}}</span>min</b>
+                </div>
+                {% endfor %}
+
+                <!-- Sliders autre-->
+                {% for s in sliders %}
+                <div class="slider-container">
+                {{s.name}}: <b style="margin-right: 10px"><span id="{{s.id}}_min">{{"%.0f"|format(s.min)}}</span>{{s.unit}}</b>
+                    <input id="slider_{{s.id}}" type="text" class="span2" value=""
+                       data-slider-min="{{s.min}}" data-slider-max="{{s.max}}"
+                       data-slider-step="{{s.step}}"
+                       data-slider-value="[{{s.min}},{{s.max}}]"
+                />
+                    <b style="margin-left: 10px"><span id="{{s.id}}_max">{{"%.0f"|format(s.max)}}</span>{{s.unit}}</b>
                 </div>
                 {% endfor %}
 
@@ -189,6 +207,11 @@
                                 {% for name,duration in el.directions.items() %}
                                 {{name}}: {{duration.text}}<br/>
                                 {% endfor %}
+                                {% for s in sliders %}
+                                {% if el.sliders[s.id] is not none %}
+                                {{s.name}}: {{el.sliders[s.id]|round|int}}{{s.unit}}<br/>
+                                {% endif %}
+                                {% endfor %}
                             </address>
                         </div>
                         <div class="col-md-10">
@@ -213,18 +236,29 @@
     {% for dirname, dirval in directions.items() %}
         {{dirname|replace(" ", "_")}}_min:{{dirval.min}},{{dirname|replace(" ", "_")}}_max:{{dirval.max}},
     {% endfor %}
+    {% for s in sliders %}
+        {{s.id}}_min:{{s.min}},{{s.id}}_max:{{s.max}},
+    {% endfor %}
     };
 
     function update_hide() {
         for (var i = 0; i < data.length; i++) {
             var price = data[i].price_int;
+            // Create variables
             {% for dirname, dirval in directions.items() %}
             var duration_{{dirname|replace(" ", "_")}} = data[i].directions["{{dirname}}"].value;
             {% endfor %}
+            {% for s in sliders %}
+            var slider_{{s.id}} = data[i].{{s.id}};
+            {% endfor %}
 
+            // Check conditions
             if (price > hide_settings.prixmax || price < hide_settings.prixmin
             {% for dirname, dirval in directions.items() %}
                 || duration_{{dirname|replace(" ", "_")}}>hide_settings.{{dirname|replace(" ", "_")}}_max || duration_{{dirname|replace(" ", "_")}} < hide_settings.{{dirname|replace(" ", "_")}}_min
+            {% endfor %}
+            {% for s in sliders %}
+                || slider_{{s.id}}>hide_settings.{{s.id}}_max || slider_{{s.id}} < hide_settings.{{s.id}}_min
             {% endfor %}
             ) {
                 $("#" + data[i].list_id.toString()).hide()
@@ -257,6 +291,19 @@
 
         $("#{{dirname|replace(" ", "_")}}_min").html(Math.round(val[0]/60));
         $("#{{dirname|replace(" ", "_")}}_max").html(Math.round(val[1]/60));
+
+        update_hide();
+    });
+    {% endfor %}
+
+    {% for s in sliders %}
+    $("#slider_{{s.id}}").slider({}).on("change", function (value) {
+        var val = value.value.newValue;
+        hide_settings.{{s.id}}_min = val[0];
+        hide_settings.{{s.id}}_max = val[1];
+
+        $("#{{s.id}}_min").html(Math.round(val[0]));
+        $("#{{s.id}}_max").html(Math.round(val[1]));
 
         update_hide();
     });

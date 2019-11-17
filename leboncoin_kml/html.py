@@ -3,11 +3,22 @@ from datetime import timedelta, datetime
 from os.path import abspath, join, dirname
 
 from jinja2 import FileSystemLoader, Environment
+from tqdm import tqdm
 
 from leboncoin_kml.annonce import Annonce
 
 default_template_folder = join(dirname(abspath(__file__)), "assets")
 import numpy as np
+
+
+def extract_surface(name):
+    def wrapper(i):
+        val = getattr(i, name)
+        if val is None:
+            return None
+        return val["valeur"]
+
+    return wrapper
 
 
 class HTMLFormatter(object):
@@ -31,12 +42,21 @@ class HTMLFormatter(object):
     def format_price(self, price):
         return '{:,}'.format(price).replace(',', ' ')
 
-    def __call__(self, data):
+    def __call__(self, data, use_tqdm=False):
         temp = self.get_template(self.template_name)
-        elements = [Annonce(i) for i in list(data.values())]
+        elements = [Annonce(i) for i in list(tqdm(data.values(), disable=not use_tqdm))]
         prices = []
 
         directions = {}
+
+        terrain = np.array([j["valeur"] if j is not None else np.nan for j in (i.surface_terrain for i in elements)])
+        jardin = np.array([j["valeur"] if j is not None else np.nan for j in (i.surface_jardin for i in elements)])
+        sliders = [
+            dict(name="Surface jardin", min=np.nanmin(jardin), max=np.nanmax(jardin), step=10, unit="m²",
+                 id="surf_jardin", func=extract_surface("surface_jardin")),
+            dict(name="Surface terrain", min=np.nanmin(terrain), max=np.nanmax(terrain), step=10, unit="m²",
+                 id="surf_terrain", func=extract_surface("surface_terrain"))
+        ]
 
         for i in elements:
             i["images"] = list(zip(i.images_thumb, i.images_mini, i.images_large))
@@ -54,16 +74,20 @@ class HTMLFormatter(object):
                                                        value=v[0]["legs"][0]["duration"]["value"])
                 for k, v in i["directions"].items()}
 
+            i["sliders"] = {}
+            for slider in sliders:
+                i["sliders"][slider["id"]] = slider["func"](i)
+
         for k in directions.keys():
             directions[k] = dict(min=np.min(directions[k]), max=np.max(directions[k]))
 
         res = temp.render(title="Résultats de la recherche", elements=elements, json=json.dumps(elements),
-                          price_min=np.min(prices), price_max=np.max(prices), directions=directions)
+                          price_min=np.min(prices), price_max=np.max(prices), directions=directions, sliders=sliders)
         return res
 
 
 if __name__ == '__main__':
-    with open("data.json", "r") as fp:
+    with open("/tmp/data.json", "r") as fp:
         data = json.load(fp)
     res = HTMLFormatter()(data)
     with open("/tmp/out.html", "w") as fp:
