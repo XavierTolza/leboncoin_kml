@@ -203,10 +203,15 @@ class LBC(Firefox):
 
         self.log.info("Finished parsing, sending result")
 
+        attachments = self.make_attachments(res)
+        Sender(self.config)(attachments)
+        self.log.info("Finished run")
+
+    def make_attachments(self, result):
         attachments = {}
 
         try:
-            attachments["data.json"] = dumps(res)
+            attachments["data.json"] = dumps(result)
         except Exception as e:
             self.log.error(f"Failed to add data.json: {type(e).__name__}: {str(e)}")
 
@@ -222,14 +227,14 @@ class LBC(Firefox):
                        title=data["subject"],
                        **{k: v[0]["legs"][0]["duration"]["value"] / 60 for k, v in data["directions"].items()}
                        )
-                  for id, data in res.items()]
+                  for id, data in result.items()]
             df = DataFrame(df)
             attachments["data.csv"] = df.to_csv()
         except Exception as e:
             self.log.error(f"Failed to add data.csv: {type(e).__name__}: {str(e)}")
 
         try:
-            html_report = HTMLFormatter()(res)
+            html_report = HTMLFormatter()(result)
             attachments["data.html"] = html_report
         except Exception as e:
             self.log.error(f"Failed to add data.html: {type(e).__name__}: {str(e)}")
@@ -250,6 +255,4 @@ class LBC(Firefox):
                 attachments["log.txt"] = read_file(log_file)
         except Exception as e:
             self.log.error(f"Failed to add log.txt: {type(e).__name__}: {str(e)}")
-
-        Sender(self.config)(attachments)
-        self.log.info("Finished run")
+        return attachments
