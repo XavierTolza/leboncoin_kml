@@ -24,7 +24,7 @@ def main():
                 d.run()
             finished = True
         except MaximumNumberOfFailures as e:
-            print("Restarting scrapper")
+            d.log.error("Restarting scrapper")
             conf.url = e.last_url
             previous_result = e.result
         except Exception as e:
