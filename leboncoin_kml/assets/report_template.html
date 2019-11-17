@@ -111,7 +111,7 @@
         <div class="col-md-12">
             <div class="page-header sticky-top">
                 <h1>
-                    LeBonCoin ! <small>Rapport des nouvelles annonces</small>
+                    LeBonCoin ! <small>Rapport des nouvelles annonces: {{elements|length}} annonces trouvées</small>
                 </h1>
 
                 <!-- Sliders pour le prix-->
@@ -210,6 +210,11 @@
                                 {% for s in sliders %}
                                 {% if el.sliders[s.id] is not none and s.display %}
                                 {{s.name}}: {{el.sliders[s.id]|round|int}}{{s.unit}}<br/>
+                                {% endif %}
+                                {% endfor %}
+                                {% for m_name, m in el.metrics.items() %}
+                                {% if m.value is not none %}
+                                {{m_name}}: {{m.value}}{{m.unit}}<br/>
                                 {% endif %}
                                 {% endfor %}
                             </address>

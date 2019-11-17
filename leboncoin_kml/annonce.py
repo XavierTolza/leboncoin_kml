@@ -54,9 +54,9 @@ class Annonce(dict):
     def images_large(self):
         return self.__get_images("urls_large,urls,urls_thumb".split(','))
 
-    def __get_surface(self, elements):
+    def surface(self, elements):
         body = self["body"].replace("\n", "").replace("\r", "").lower()
-        r = f'.*({"|".join(elements)})([a-z éè]{3, 20})?( de| d\'environ| ?: ?)? ?([0-9]+) ?m(²|2).*'
+        r = f'.*({"|".join(elements)})([a-z éè]{{3,20}})?( de| d\'environ| ?: ?)? ?([0-9\.]+) ?m(²|2).*'
         match = re.match(r, body)
         res = None
         if match is not None:
@@ -66,11 +66,11 @@ class Annonce(dict):
 
     @property
     def surface_terrain(self):
-        return self.__get_surface("terrain,parcelle".split(","))
+        return self.surface("terrain,parcelle".split(","))
 
     @property
     def surface_jardin(self):
-        return self.__get_surface("jardin,jardinet,potager".split(","))
+        return self.surface("jardin,jardinet,potager".split(","))
 
     @property
     def a_construire(self):

@@ -6,14 +6,17 @@ from jinja2 import FileSystemLoader, Environment
 from tqdm import tqdm
 
 from leboncoin_kml.annonce import Annonce
+from leboncoin_kml.config import Config
 
 default_template_folder = join(dirname(abspath(__file__)), "assets")
 import numpy as np
 
 
-def extract_surface(name):
+def extract_surface(name, **kwargs):
     def wrapper(i):
         val = getattr(i, name)
+        if len(kwargs):
+            val = val(**kwargs)
         if val is None:
             return None
         return val["valeur"]
@@ -21,8 +24,19 @@ def extract_surface(name):
     return wrapper
 
 
+extract_garage = extract_surface("surface", elements=["garage"])
+
+
+def apply_filters(i, filters):
+    for filter in filters:
+        if not filter(i):
+            return False
+    return True
+
+
 class HTMLFormatter(object):
-    def __init__(self, template_folder=default_template_folder, template_name="report_template.html"):
+    def __init__(self, template_folder=default_template_folder, template_name="report_template.html", filters=[]):
+        self.filters = filters
         self.template_name = template_name
         templateLoader = FileSystemLoader(searchpath=template_folder)
         templateEnv = Environment(loader=templateLoader)
@@ -44,17 +58,22 @@ class HTMLFormatter(object):
 
     def __call__(self, data, use_tqdm=False):
         temp = self.get_template(self.template_name)
-        elements = [Annonce(i) for i in list(tqdm(data.values(), disable=not use_tqdm))]
+        elements = (Annonce(i) for i in list(tqdm(data.values(), disable=not use_tqdm)))
+        elements = [i for i in elements if apply_filters(i, self.filters)]
+        # Sort by price
+        elements = np.array(elements)[np.argsort([i["price"][0] for i in elements])].tolist()
         prices = []
 
         directions = {}
 
         sliders = [
-            dict(name="Surface jardin", step=10, unit="m²", id="surf_jardin", func=extract_surface("surface_jardin")),
-            dict(name="Surface terrain", step=10, unit="m²", id="surf_terrain",
+            dict(name="Jardin", step=10, unit="m²", id="surf_jardin", func=extract_surface("surface_jardin")),
+            dict(name="Terrain", step=10, unit="m²", id="surf_terrain",
                  func=extract_surface("surface_terrain")),
-            dict(name="Latitude", step=0.001, unit="°", id="lat", func=lambda x: x.latlng[0], precision=4,display=False),
-            dict(name="Longitude", step=0.001, unit="°", id="lng", func=lambda x: x.latlng[1], precision=4,display=False)
+            dict(name="Latitude", step=0.001, unit="°", id="lat", func=lambda x: x.latlng[0], precision=4,
+                 display=False),
+            dict(name="Longitude", step=0.001, unit="°", id="lng", func=lambda x: x.latlng[1], precision=4,
+                 display=False)
         ]
         for i in sliders:
             i["min"] = np.inf
@@ -88,6 +107,8 @@ class HTMLFormatter(object):
                     slider["min"] = min(slider["min"], val)
                     slider["max"] = max(slider["max"], val)
 
+            i["metrics"] = {"Garage": dict(value=extract_garage(i), unit="m²")}
+
         for k in directions.keys():
             directions[k] = dict(min=np.min(directions[k]), max=np.max(directions[k]))
 
@@ -99,7 +120,8 @@ class HTMLFormatter(object):
 if __name__ == '__main__':
     with open("/tmp/data.json", "r") as fp:
         data = json.load(fp)
-    res = HTMLFormatter()(data)
+    filters = Config().filters
+    res = HTMLFormatter(filters=filters)(data)
     with open("/tmp/out.html", "w") as fp:
         fp.write(res)
     pass
