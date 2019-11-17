@@ -7,6 +7,7 @@ from pandas import DataFrame
 from selenium.common.exceptions import NoSuchElementException, InsecureCertificateException, \
     UnexpectedAlertPresentException
 
+from leboncoin_kml.annonce import Annonce
 from leboncoin_kml.config import Config
 from leboncoin_kml.container import Container
 from leboncoin_kml.html import HTMLFormatter
@@ -203,33 +204,38 @@ class LBC(Firefox):
 
         self.log.info("Finished parsing, sending result")
 
+        attachments = self.make_attachments(res)
+        Sender(self.config)(attachments)
+        self.log.info("Finished run")
+
+    def make_attachments(self, result):
         attachments = {}
 
         try:
-            attachments["data.json"] = dumps(res)
+            attachments["data.json"] = dumps(result)
         except Exception as e:
             self.log.error(f"Failed to add data.json: {type(e).__name__}: {str(e)}")
 
         try:
             # Formatting final Df
-            df = [dict(id=id, description=data["body"],
+            df = [dict(id=data.id, description=data["body"],
                        date_premiere_publication=data["first_publication_date"],
                        url=data["url"],
-                       ville=data["location"]["city"],
+                       ville=data.city,
                        map=f'https://www.google.fr/maps/place/{data["location"]["lat"]},{data["location"]["lng"]}',
                        PAP=data["owner"]["no_salesmen"], vendeur=data["owner"]["name"],
                        prix=data["price"][0],
                        title=data["subject"],
                        **{k: v[0]["legs"][0]["duration"]["value"] / 60 for k, v in data["directions"].items()}
                        )
-                  for id, data in res.items()]
+                  for data in (Annonce(data) for id, data in result.items())]
             df = DataFrame(df)
             attachments["data.csv"] = df.to_csv()
         except Exception as e:
             self.log.error(f"Failed to add data.csv: {type(e).__name__}: {str(e)}")
 
         try:
-            html_report = HTMLFormatter()(res)
+            html_report = HTMLFormatter()(result)
             attachments["data.html"] = html_report
         except Exception as e:
             self.log.error(f"Failed to add data.html: {type(e).__name__}: {str(e)}")
@@ -250,6 +256,4 @@ class LBC(Firefox):
                 attachments["log.txt"] = read_file(log_file)
         except Exception as e:
             self.log.error(f"Failed to add log.txt: {type(e).__name__}: {str(e)}")
-
-        Sender(self.config)(attachments)
-        self.log.info("Finished run")
+        return attachments

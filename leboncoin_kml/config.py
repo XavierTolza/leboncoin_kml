@@ -18,11 +18,10 @@ class Config(object):
           "real_estate_type=1&immo_sell_type=old,new&price=min-325000&square=60-max"
     scrap_time = 24  # hours
     maximum_number_retry = 20
-    headless = True
+    headless = False
     output_folder = "/tmp/output"
     start_anonymously = headless
     use_proxy = start_anonymously
-    date_filter_field = "index_date"
     google_maps_api_key = google_maps_api_key
     openroute_api_key = openroute_api_key
     directions = dict(

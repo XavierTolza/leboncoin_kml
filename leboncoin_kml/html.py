@@ -4,6 +4,8 @@ from os.path import abspath, join, dirname
 
 from jinja2 import FileSystemLoader, Environment
 
+from leboncoin_kml.annonce import Annonce
+
 default_template_folder = join(dirname(abspath(__file__)), "assets")
 import numpy as np
 
@@ -31,13 +33,13 @@ class HTMLFormatter(object):
 
     def __call__(self, data):
         temp = self.get_template(self.template_name)
-        elements = list(data.values())
+        elements = [Annonce(i) for i in list(data.values())]
         prices = []
 
         directions = {}
 
         for i in elements:
-            i["images"] = list(zip(i["images"]["urls_thumb"], i["images"]["urls"], i["images"]["urls_large"]))
+            i["images"] = list(zip(i.images_thumb, i.images_mini, i.images_large))
             price = i["price"][0]
             prices.append(price)
             i["price"] = self.format_price(price)
