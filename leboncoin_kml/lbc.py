@@ -107,9 +107,11 @@ class LBC(Firefox):
             data = self.execute_script("return window.__REDIAL_PROPS__;")
             for i in data[::-1]:
                 if type(i) == dict and "data" in i and "ads" in i["data"]:
-                    return i["data"]["ads"]
+                    return [Annonce(j) for j in i["data"]["ads"]]
             raise ValueError("Failed to find the data in the data container")
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             raise LBCError("Failed finding list of items: %s" % str(e),
                            data=bytes(dumps(data), self.config.encoding),
                            page_source=bytes(self.page_source, self.config.encoding))
@@ -164,7 +166,7 @@ class LBC(Firefox):
 
                 n_good_elements = 0
                 for i in annonces:
-                    date = datetime.strptime(i[self.config.date_filter_field], '%Y-%m-%d %H:%M:%S')
+                    date = i.datetime
                     timedelta = (now - date).total_seconds() / (60 * 60)
                     if timedelta > self.config.scrap_time:
                         raise FinalPageReached()
