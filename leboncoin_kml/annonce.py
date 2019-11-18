@@ -56,12 +56,13 @@ class Annonce(dict):
 
     def surface(self, elements):
         body = self["body"].replace("\n", "").replace("\r", "").lower()
-        r = f'.*({"|".join(elements)})([a-z éè]{{3,20}})?( de| d\'environ| ?: ?)? ?([0-9\.]+) ?m(²|2).*'
+        r = f'.*({"|".join(elements)})([a-z éè]{{3,20}})?( de| d\'environ| ?: ?)? ?([0-9\.,]+) ?m(²|2).*'
         match = re.match(r, body)
         res = None
         if match is not None:
             groups = match.groups()
-            res = {k: t(groups[i]) for k, i, t in zip("type,valeur".split(","), [0, -2], (str, float))}
+            res = {k: groups[i] for k, i in zip("type,valeur".split(","), [0, -2])}
+            res["valeur"] = float(res["valeur"].replace(",", "."))
         return res
 
     @property
