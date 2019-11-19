@@ -80,10 +80,9 @@ class LBC(Firefox):
     @property
     def need_identity_change(self):
         title = self.title
-        n_char_body = len(self.find_element_by_css_selector("body").text)
-        res = "blocked" in title or n_char_body < 100
+        res = "blocked" in title and ("leboncoin" not in title or title == "about:config")
         if res:
-            self.log.debug("Need identity change because title is: %s and body has size %d" % (title, n_char_body))
+            self.log.debug("Need identity change because title is: %s" % title)
         return res
 
     @property
