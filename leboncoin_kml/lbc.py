@@ -80,7 +80,10 @@ class LBC(Firefox):
     @property
     def need_identity_change(self):
         title = self.title
-        return "blocked" in title or "leboncoin" not in title
+        res = "blocked" in title or "leboncoin" not in title
+        if res:
+            self.log.debug("Need identity change because title is: %s" % title)
+        return res
 
     @property
     def need_user_agent_change(self):
