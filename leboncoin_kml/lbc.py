@@ -79,7 +79,8 @@ class LBC(Firefox):
 
     @property
     def need_identity_change(self):
-        return "blocked" in self.title
+        title = self.title
+        return "blocked" in title or "leboncoin" not in title
 
     @property
     def need_user_agent_change(self):
