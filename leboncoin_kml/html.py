@@ -35,8 +35,9 @@ def apply_filters(i, filters):
 
 
 class HTMLFormatter(object):
-    def __init__(self, template_folder=default_template_folder, template_name="report_template.html", filters=[]):
-        self.filters = filters
+    def __init__(self, template_folder=default_template_folder, template_name="report_template.html", config=Config()):
+        self.config = config
+        self.filters = config.filters
         self.template_name = template_name
         templateLoader = FileSystemLoader(searchpath=template_folder)
         templateEnv = Environment(loader=templateLoader)
@@ -113,15 +114,16 @@ class HTMLFormatter(object):
             directions[k] = dict(min=np.min(directions[k]), max=np.max(directions[k]))
 
         res = temp.render(title="Résultats de la recherche", elements=elements, json=json.dumps(elements),
-                          price_min=np.min(prices), price_max=np.max(prices), directions=directions, sliders=sliders)
+                          price_min=np.min(prices), price_max=np.max(prices), directions=directions, sliders=sliders,
+                          mapbox_token=self.config.mapbox_token)
         return res
 
 
 if __name__ == '__main__':
-    with open("/tmp/data.json", "r") as fp:
+    with open("data.json", "r") as fp:
         data = json.load(fp)
     filters = Config().filters
-    res = HTMLFormatter(filters=filters)(data)
+    res = HTMLFormatter()(data)
     with open("/tmp/out.html", "w") as fp:
         fp.write(res)
     pass

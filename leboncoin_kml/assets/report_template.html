@@ -3,11 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <title>{{title}}</title>
+
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
           integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
     <link rel="stylesheet"
           href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/10.6.2/css/bootstrap-slider.css">
-
+    <!--    Open street maps-->
+    <!-- Import Leaflet CSS Style Sheet -->
+    <link rel="stylesheet" href="https://npmcdn.com/leaflet@1.0.0-rc.2/dist/leaflet.css" />
+    <!-- Import Leaflet JS Library -->
+    <script src="https://npmcdn.com/leaflet@1.0.0-rc.2/dist/leaflet.js"></script>
 
     <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
             integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
@@ -102,6 +107,14 @@
             display: inline-block;
             width: 13cm;
         }
+
+        #my_osm_widget_map { /* use the same name as <div id=""> */
+            width: 100%; /* important! if you need full width display */
+            height: 85vh;
+            margin: 0;
+            border-radius: 5px;
+            /* ... */
+        }
     </style>
 </head>
 <body>
@@ -151,88 +164,121 @@
                     <b style="margin-left: 10px"><span id="{{s.id}}_max">{{"%%.%df"|format(s.precision)|format(s.max)}}</span>{{s.unit}}</b>
                 </div>
                 {% endfor %}
-
-
             </div>
-            {% for el in elements %}
-            <div class="row card-body rounded border" id="{{el.list_id}}">
-                <div class="col-md-2">
 
-                    <!-- Carousel-->
-                    <div id="carousel_{{el.list_id}}" class="carousel slide" data-ride="carousel">
-                        <ol class="carousel-indicators">
-                            {% for mini,url,large in el.images %}
-                            <li data-target="#carousel_{{el.list_id}}" data-slide-to="{{loop.index0}}" {% if
-                                loop.index0== 0 %} class="active" {% endif %}}></li>
-                            {% endfor %}
-                        </ol>
-                        <div class="carousel-inner">
-                            {% for mini,url,large in el.images %}
-                            <div class="carousel-item {% if loop.index0 == 0 %} active {% endif %}}">
-                                <a href="{{large}}" target="_blank"><img class="d-block w-100 lbc_image"
-                                                                         style="height: 176px; overflow: hidden"
-                                                                         src="{{url}}"></a>
-                            </div>
-                            {% endfor %}
-                        </div>
-                        <a class="carousel-control-prev" href="#carousel_{{el.list_id}}" role="button"
-                           data-slide="prev">
-                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                            <span class="sr-only">Previous</span>
-                        </a>
-                        <a class="carousel-control-next" href="#carousel_{{el.list_id}}" role="button"
-                           data-slide="next">
-                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                            <span class="sr-only">Next</span>
-                        </a>
-                    </div>
+            <!--            BODY-->
+            <div class="row">
+                <div class="col-6" style="height: 85vh;overflow: scroll">
+                    <div id="annonces" class="row scrollable">
+                        {% for el in elements %}
+                        <div class="row card-body rounded border" id="{{el.list_id}}">
+                            <div class="col-md-2">
 
-
-                </div>
-                <div class="col-md-9">
-                    <div class="row">
-                        <h3 class="lbc_titre"><a href="{{el.url}}" target="_blank">{{el.subject}}</a></h3>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-2">
-                            <h4 class="price">{{el.price}} €</h4>
-
-                            <address>
-                                <strong>
-                                    <a href="https://www.google.fr/maps/place/{{el.location.lat}},{{el.location.lng}}"
-                                       target="_blank">
-                                        {{el.location.city_label}}
+                                <!-- Carousel-->
+                                <div id="carousel_{{el.list_id}}" class="carousel slide" data-ride="carousel">
+                                    <ol class="carousel-indicators">
+                                        {% for mini,url,large in el.images %}
+                                        <li data-target="#carousel_{{el.list_id}}" data-slide-to="{{loop.index0}}" {% if
+                                            loop.index0== 0 %} class="active" {% endif %}}></li>
+                                        {% endfor %}
+                                    </ol>
+                                    <div class="carousel-inner">
+                                        {% for mini,url,large in el.images %}
+                                        <div class="carousel-item {% if loop.index0 == 0 %} active {% endif %}}">
+                                            <a href="{{large}}" target="_blank"><img class="d-block w-100 lbc_image"
+                                                                                     style="height: 176px; overflow: hidden"
+                                                                                     src="{{url}}"></a>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    <a class="carousel-control-prev" href="#carousel_{{el.list_id}}" role="button"
+                                       data-slide="prev">
+                                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                        <span class="sr-only">Previous</span>
                                     </a>
-                                </strong><br/>
-                                {% for name,duration in el.directions.items() %}
-                                {{name}}: {{duration.text}}<br/>
-                                {% endfor %}
-                                {% for s in sliders %}
-                                {% if el.sliders[s.id] is not none and s.display %}
-                                {{s.name}}: {{el.sliders[s.id]|round|int}}{{s.unit}}<br/>
-                                {% endif %}
-                                {% endfor %}
-                                {% for m_name, m in el.metrics.items() %}
-                                {% if m.value is not none %}
-                                {{m_name}}: {{m.value}}{{m.unit}}<br/>
-                                {% endif %}
-                                {% endfor %}
-                            </address>
+                                    <a class="carousel-control-next" href="#carousel_{{el.list_id}}" role="button"
+                                       data-slide="next">
+                                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                        <span class="sr-only">Next</span>
+                                    </a>
+                                </div>
+
+
+                            </div>
+                            <div class="col-md-9">
+                                <div class="row">
+                                    <h3 class="lbc_titre"><a href="{{el.url}}" target="_blank">{{el.subject}}</a></h3>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-2">
+                                        <h4 class="price">{{el.price}} €</h4>
+
+                                        <address>
+                                            <strong>
+                                                <a href="https://www.google.fr/maps/place/{{el.location.lat}},{{el.location.lng}}"
+                                                   target="_blank">
+                                                    {{el.location.city_label}}
+                                                </a>
+                                            </strong><br/>
+                                            {% for name,duration in el.directions.items() %}
+                                            {{name}}: {{duration.text}}<br/>
+                                            {% endfor %}
+                                            {% for s in sliders %}
+                                            {% if el.sliders[s.id] is not none and s.display %}
+                                            {{s.name}}: {{el.sliders[s.id]|round|int}}{{s.unit}}<br/>
+                                            {% endif %}
+                                            {% endfor %}
+                                            {% for m_name, m in el.metrics.items() %}
+                                            {% if m.value is not none %}
+                                            {{m_name}}: {{m.value}}{{m.unit}}<br/>
+                                            {% endif %}
+                                            {% endfor %}
+                                        </address>
+                                    </div>
+                                    <div class="col-md-10">
+                                        <p class="collapse" id="collapse-{{el.list_id}}" aria-expanded="false">{{el.body}}</p>
+                                        <a role="button" class="collapsed" data-toggle="collapse" href="#collapse-{{el.list_id}}"
+                                           aria-expanded="false" aria-controls="collapseExample"></a>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="col-md-10">
-                            <p class="collapse" id="collapse-{{el.list_id}}" aria-expanded="false">{{el.body}}</p>
-                            <a role="button" class="collapsed" data-toggle="collapse" href="#collapse-{{el.list_id}}"
-                               aria-expanded="false" aria-controls="collapseExample"></a>
-                        </div>
+                        {% endfor %}
                     </div>
+
+                </div>
+                <div class="col-6">
+                    <div id="my_osm_widget_map" class="sticky-top"></div>
                 </div>
             </div>
-            {% endfor %}
         </div>
     </div>
 </div>
 
 <script>
+    // On initialise la latitude et la longitude de Paris (centre de la carte)
+    var lat = 48.852969;
+    var lon = 2.349903;
+
+    var mymap = L.map('my_osm_widget_map', { /* use the same name as your <div id=""> */
+        center: [lat,lon], /* set GPS Coordinates */
+        zoom: 17, /* define the zoom level */
+        zoomControl: true, /* false = no zoom control buttons displayed */
+        scrollWheelZoom: true /* false = scrolling zoom on the map is locked */
+    });
+
+    L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={{mapbox_token}}', { /* set your personal MapBox Access Token */
+        maxZoom: 20, /* zoom limit of the map */
+        attribution: 'Données &copy; Contributeurs <a href="http://openstreetmap.org">OpenStreetMap</a> + ' +
+            '<a href="http://mapbox.com">Mapbox</a> | ' +
+            '<a href="https://creativecommons.org/licenses/by/2.0/">CC-BY</a> ' +
+            'Guillaume Rouan 2016', /* set the map's caption */
+        id: 'mapbox.streets' /* mapbox.light / dark / streets / outdoors / satellite */
+    }).addTo(mymap);
+
+    var marker = L.marker([lat, lon])
+    marker.addTo(mymap); /* set your location's GPS Coordinates : [LAT,LON] */
+
 
     var data = {{json}}
 
