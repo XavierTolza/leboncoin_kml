@@ -102,6 +102,10 @@
             z-index: 1020;
             background-color: white;
         }
+        .page-header{
+            height: 20vh;
+            overflow: hidden;
+        }
 
         .slider-container{
             display: inline-block;
@@ -168,11 +172,11 @@
 
             <!--            BODY-->
             <div class="row">
-                <div class="col-6" style="height: 85vh;overflow: scroll">
+                <div class="col-7" style="height: 85vh;overflow: scroll">
                     <div id="annonces" class="row scrollable">
                         {% for el in elements %}
                         <div class="row card-body rounded border" id="{{el.list_id}}">
-                            <div class="col-md-2">
+                            <div class="col-md-4">
 
                                 <!-- Carousel-->
                                 <div id="carousel_{{el.list_id}}" class="carousel slide" data-ride="carousel">
@@ -205,12 +209,13 @@
 
 
                             </div>
-                            <div class="col-md-9">
+                            <!-- Partie de droite de l'annonce -->
+                            <div class="col-md-8">
                                 <div class="row">
                                     <h3 class="lbc_titre"><a href="{{el.url}}" target="_blank">{{el.subject}}</a></h3>
                                 </div>
                                 <div class="row">
-                                    <div class="col-md-2">
+                                    <div class="col-md-4">
                                         <h4 class="price">{{el.price}} €</h4>
 
                                         <address>
@@ -235,7 +240,7 @@
                                             {% endfor %}
                                         </address>
                                     </div>
-                                    <div class="col-md-10">
+                                    <div class="col-md-8">
                                         <p class="collapse" id="collapse-{{el.list_id}}" aria-expanded="false">{{el.body}}</p>
                                         <a role="button" class="collapsed" data-toggle="collapse" href="#collapse-{{el.list_id}}"
                                            aria-expanded="false" aria-controls="collapseExample"></a>
@@ -247,7 +252,7 @@
                     </div>
 
                 </div>
-                <div class="col-6">
+                <div class="col-5">
                     <div id="my_osm_widget_map" class="sticky-top"></div>
                 </div>
             </div>
@@ -257,12 +262,10 @@
 
 <script>
     // On initialise la latitude et la longitude de Paris (centre de la carte)
-    var lat = 48.852969;
-    var lon = 2.349903;
 
     var mymap = L.map('my_osm_widget_map', { /* use the same name as your <div id=""> */
-        center: [lat,lon], /* set GPS Coordinates */
-        zoom: 17, /* define the zoom level */
+        center: [{{map_center[0]}},{{map_center[1]}}], /* set GPS Coordinates */
+        zoom: {{map_zoom}}, /* define the zoom level */
         zoomControl: true, /* false = no zoom control buttons displayed */
         scrollWheelZoom: true /* false = scrolling zoom on the map is locked */
     });
@@ -276,11 +279,42 @@
         id: 'mapbox.streets' /* mapbox.light / dark / streets / outdoors / satellite */
     }).addTo(mymap);
 
-    var marker = L.marker([lat, lon])
-    marker.addTo(mymap); /* set your location's GPS Coordinates : [LAT,LON] */
-
-
     var data = {{json}}
+    var red_icon="http://chart.apis.google.com/chart?chst=d_map_pin_letter&chld=%E2%80%A2|e85141&chf=a,s,ee00FFFF";
+    var green_icon="http://chart.apis.google.com/chart?chst=d_map_pin_letter&chld=%E2%80%A2|2ecc71&chf=a,s,ee00FFFF";
+
+    var markers = {};
+
+    $(document).ready(function () {
+        for (let el of data){
+            let id=el.list_id
+            markers[id] = L.marker(el.coordinates);
+            markers[id].addTo(mymap);
+            $(markers[id]._icon).attr("src",red_icon)
+
+            $("#" + id.toString()).hover(
+                function (obj) {
+                    $(markers[parseInt(obj.currentTarget.id)]._icon).attr("src",green_icon)
+                },
+                function (obj) {
+                    $(markers[parseInt(obj.currentTarget.id)]._icon).attr("src",red_icon)
+                }
+            )
+        }
+
+        $(".sticky-top").hover(
+            function (obj) {
+                $(obj.currentTarget).height("30vh")
+            },
+            function (obj) {
+                $(obj.currentTarget).height("20vh")
+            }
+        )
+    });
+
+
+
+
 
     var hide_settings={
         prixmin:{{price_min}},prixmax:{{price_max}},
@@ -312,9 +346,15 @@
                 || ((slider_{{s.id}}>hide_settings.{{s.id}}_max || slider_{{s.id}} < hide_settings.{{s.id}}_min) && slider_{{s.id}} !== null)
             {% endfor %}
             ) {
-                $("#" + data[i].list_id.toString()).hide()
+                var id=data[i].list_id
+                $("#" + id.toString()).hide();
+                $(markers[id]._shadow).hide();
+                $(markers[id]._icon).hide();
             } else {
-                $("#" + data[i].list_id.toString()).show()
+                var id=data[i].list_id
+                $("#" + id.toString()).show()
+                $(markers[id]._shadow).show();
+                $(markers[id]._icon).show();
             }
         }
     }

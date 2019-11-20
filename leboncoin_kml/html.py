@@ -109,13 +109,17 @@ class HTMLFormatter(object):
                     slider["max"] = max(slider["max"], val)
 
             i["metrics"] = {"Garage": dict(value=extract_garage(i), unit="m²")}
+            i["coordinates"] = i.latlng.tolist()
+
+        latlng = np.array([i.latlng for i in elements])
+        map_zoom = int(np.round(np.std(latlng, axis=0).max()*117.57))
 
         for k in directions.keys():
             directions[k] = dict(min=np.min(directions[k]), max=np.max(directions[k]))
 
         res = temp.render(title="Résultats de la recherche", elements=elements, json=json.dumps(elements),
                           price_min=np.min(prices), price_max=np.max(prices), directions=directions, sliders=sliders,
-                          mapbox_token=self.config.mapbox_token)
+                          mapbox_token=self.config.mapbox_token, map_center=latlng.mean(0).tolist(), map_zoom=map_zoom)
         return res
 
 
