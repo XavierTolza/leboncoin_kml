@@ -22,8 +22,6 @@ class RandomQueue(list):
         for i in range(N):
             self.append(self.queue.get(timeout=0))
         i = np.random.randint(0, len(self))
-        print(i)
-        print(self)
         res = self.pop(i)
         return res
 
