@@ -223,7 +223,9 @@ class LBC(Firefox):
         except _OverQueryLimit as e:
             self.log.critical("Google maps API no longer working: %s" % str(e))
         except KeyError as e:
+            import traceback
             self.log.critical(f"Aborting parsing: {type(e).__name__}: {str(e)}")
+            self.log.debug(traceback.format_exc())
 
         self.log.info("Finished parsing, sending result")
 
