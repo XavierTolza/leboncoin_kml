@@ -7,11 +7,35 @@ from proxybroker import Broker
 from leboncoin_kml.log import LoggingClass
 
 
+class RandomQueue(list):
+    def __init__(self):
+        super(RandomQueue, self).__init__()
+        self.queue = Queue()
+
+    def put(self, value):
+        self.queue.put(value)
+
+    def get(self, timeout=None):
+        if timeout is not None and len(self) == 0 and self.queue.qsize() == 0:
+            return self.queue.get(timeout=timeout)
+        N = self.queue.qsize()
+        for i in range(N):
+            self.append(self.queue.get(timeout=0))
+        i = np.random.randint(0, len(self))
+        print(i)
+        print(self)
+        res = self.pop(i)
+        return res
+
+    def qsize(self):
+        return len(self)+self.queue.qsize()
+
+
 class PBrocker(Process, LoggingClass):
     def __init__(self):
         Process.__init__(self)
         LoggingClass.__init__(self)
-        self.data = Queue()
+        self.data = RandomQueue()
         self.proxies = proxies = asyncio.Queue()
         self.brocker = Broker(proxies)
         self.loop = asyncio.get_event_loop()
