@@ -9,3 +9,5 @@ googlemaps
 jinja2
 openrouteservice
 requests
+fuzzywuzzy
+dateparser
