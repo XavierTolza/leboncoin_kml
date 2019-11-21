@@ -93,7 +93,7 @@ class LBC(Firefox):
     @property
     def next_page_link(self):
         try:
-            res = self.find_element_by_name("chevronright").find_element_by_xpath("./..")
+            res = self.find_element_by_name("chevronright").find_element_by_xpath("./..").get_attribute("href")
         except NoSuchElementException:
             self.log.warning("Next page not found, trying backup option")
             url = self.__current_url
@@ -101,7 +101,7 @@ class LBC(Firefox):
             if match is None:
                 self.log.warning("Failed to find page number in the url, falling back to the third option")
                 res = self.find_element_by_css_selector("nav div ul li span").find_element_by_xpath(
-                    "./../following::li/a")
+                    "./../following::li/a").get_attribute("href")
             else:
                 page = int(match.groups()[0])
                 res = url.replace("page=%d" % page, "page=%d" % (page + 1))
@@ -109,8 +109,7 @@ class LBC(Firefox):
 
     def got_to_next_page(self):
         try:
-            link = self.next_page_link
-            url = link.get_attribute("href")
+            url = self.next_page_link
             self.info(f"Moving on to {url}")
             self.__current_url = url
             self.get(url)
