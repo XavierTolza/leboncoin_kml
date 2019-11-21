@@ -44,9 +44,12 @@ class Firefox(webdriver.Firefox, LoggingClass):
         if use_proxy_broker:
             self.broker = PBrocker()
         LoggingClass.__init__(self)
-        fp = webdriver.FirefoxProfile()
-        fp.set_preference("http.response.timeout", timeout)
-        fp.set_preference("dom.max_script_run_time", timeout)
+        if headless:
+            fp = webdriver.FirefoxProfile()
+            fp.set_preference("http.response.timeout", timeout)
+            fp.set_preference("dom.max_script_run_time", timeout)
+        else:
+            fp = None
         webdriver.Firefox.__init__(self, options=options, firefox_profile=fp)
         self.set_preference(**preferences)
 
