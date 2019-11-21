@@ -214,7 +214,8 @@ class LBC(Firefox):
                         n_good_elements += 1
                         res[id] = i
                 timedelta = "%.2f" % timedelta
-                self.log.info(f"Parsed {len(annonces)} elements. {n_good_elements} elements passed the filters,"
+                self.log.info(f"Parsed {len(annonces)} elements. {n_good_elements} elements passed the filters, "
+                              f"{len(res)} elements found so far,"
                               f" the lastest one was posted {timedelta} hours ago")
                 self.got_to_next_page()
         except FinalPageReached:
@@ -227,7 +228,8 @@ class LBC(Firefox):
         self.log.info("Finished parsing, sending result")
 
         attachments = self.make_attachments(res)
-        Sender(self.config)(attachments)
+        Sender(self.config)(attachments, body=f"Ci joint, veuillez trouver les {len(res)} annonces du jour qui "
+                                              f"correspondent à vos critères")
         self.log.info("Finished run")
 
     def make_attachments(self, result):
