@@ -13,3 +13,4 @@ proxylist.txt
 *.txt
 output
 secret.py
+*.json
