@@ -124,6 +124,10 @@ class Firefox(webdriver.Firefox, LoggingClass):
             self.close_tab()
         return
 
+    def disable_image_load(self):
+        self.set_preference(**{"permissions.default.image": 0})
+                               # "dom.ipc.plugins.enabled.libflashplayer.so": False})
+
     def set_proxy(self, **kwargs):
 
         script = ["Services.prefs.setIntPref('network.proxy.type', 1);"]
