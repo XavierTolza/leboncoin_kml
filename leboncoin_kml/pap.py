@@ -98,9 +98,12 @@ if __name__ == '__main__':
 
     conf.headless = False
     conf.start_anonymously = False
+    conf.scrap_time = 49
     conf.log_level = DEBUG
     conf.use_proxy = True
+    # conf.email_receivers = None
 
     pap = Pap(config=conf)
+    # pap.disable_image_load()
     with pap:
         pap.run()
