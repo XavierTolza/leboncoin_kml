@@ -100,6 +100,8 @@ if __name__ == '__main__':
     conf.start_anonymously = False
     conf.log_level = DEBUG
     conf.use_proxy = True
+    conf.scrap_time = 49
+    conf.email_receivers = None
 
     pap = Pap(config=conf)
     with pap:

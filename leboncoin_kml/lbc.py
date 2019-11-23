@@ -186,7 +186,7 @@ class LBC(Firefox):
                     date = i.datetime
                     timedelta = (now - date).total_seconds() / (60 * 60)
                     if timedelta > self.config.scrap_time:
-                        raise FinalPageReached()
+                        raise FinalPageReached(f"Time delta ({timedelta}) exceed scrap time ({self.config.scrap_time})")
                     id = str(i["list_id"])
                     keep_record = id not in self.container if self.config.skip_elements_already_in_bdd else True
                     keep_record &= id not in res
@@ -218,8 +218,8 @@ class LBC(Firefox):
                               f"{len(res)} elements found so far,"
                               f" the lastest one was posted {timedelta} hours ago")
                 self.got_to_next_page()
-        except FinalPageReached:
-            pass
+        except FinalPageReached as e:
+            self.log.debug(f"Finishing because catch FinalPageReached: {str(e)}")
         except _OverQueryLimit as e:
             self.log.critical("Google maps API no longer working: %s" % str(e))
         except KeyError as e:
@@ -229,9 +229,10 @@ class LBC(Firefox):
 
         self.log.info("Finished parsing, sending result")
 
-        attachments = self.make_attachments(res)
-        Sender(self.config)(attachments, body=f"Ci joint, veuillez trouver les {len(res)} annonces du jour qui "
-                                              f"correspondent à vos critères")
+        if self.config.email_receivers:
+            attachments = self.make_attachments(res)
+            Sender(self.config)(attachments, body=f"Ci joint, veuillez trouver les {len(res)} annonces du jour qui "
+                                                  f"correspondent à vos critères")
         self.log.info("Finished run")
 
     def make_attachments(self, result):
