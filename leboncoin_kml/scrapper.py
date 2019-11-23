@@ -53,11 +53,11 @@ class Firefox(webdriver.Firefox, LoggingClass):
         webdriver.Firefox.__init__(self, options=options, firefox_profile=fp)
         self.set_preference(**preferences)
 
-    def new_tab(self, url=None):
+    def new_tab(self, url=None, **kwargs):
         self.execute_script(f'window.open("","_blank");')
         self.tab = -1
         if url is not None:
-            self.get(url)
+            self.get(url, **kwargs)
         pass
 
     @property
@@ -100,7 +100,7 @@ class Firefox(webdriver.Firefox, LoggingClass):
 
     def set_preference(self, **elements):
         self.debug(f"Setting preferences: {elements}")
-        self.new_tab("about:config")
+        self.new_tab("about:config", secure=False)
 
         try:
             script = """
@@ -126,7 +126,7 @@ class Firefox(webdriver.Firefox, LoggingClass):
 
     def disable_image_load(self):
         self.set_preference(**{"permissions.default.image": 0})
-                               # "dom.ipc.plugins.enabled.libflashplayer.so": False})
+        # "dom.ipc.plugins.enabled.libflashplayer.so": False})
 
     def set_proxy(self, **kwargs):
 

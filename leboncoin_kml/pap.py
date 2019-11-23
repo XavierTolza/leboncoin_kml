@@ -14,6 +14,7 @@ from leboncoin_kml.postal_code_db import db
 
 class ConfigPap(Config):
     url = "https://www.pap.fr/annonce/vente-maisons-midi-pyrenees-g475-a-partir-du-3-pieces-jusqu-a-300000-euros-a-partir-de-60-m2"
+    scrap_time = 49
 
 
 class Annonce(LBCAnnonce):
@@ -100,7 +101,6 @@ if __name__ == '__main__':
     conf.start_anonymously = False
     conf.log_level = DEBUG
     conf.use_proxy = True
-    conf.scrap_time = 49
     conf.email_receivers = None
 
     pap = Pap(config=conf)

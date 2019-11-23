@@ -134,7 +134,10 @@ class LBC(Firefox):
                            page_source=bytes(self.page_source, self.config.encoding))
         return res
 
-    def get(self, url):
+    def wait_page_load(self):
+        return
+
+    def get(self, url, secure=True, wait_page_load=True):
         success = False
         n_try = 0
         while not success:
@@ -144,6 +147,10 @@ class LBC(Firefox):
                     self.log.error("Too many failures. Raising exception")
                     raise MaximumNumberOfFailures(self.__current_url, self.result, n_try)
                 super(LBC, self).get(url)
+                if not secure:
+                    return
+                if wait_page_load:
+                    self.wait_page_load()
                 if self.need_identity_change:
                     raise NeedIdentityChange("Felt into captcha")
                 if self.need_user_agent_change:
@@ -232,7 +239,7 @@ class LBC(Firefox):
         if self.config.email_receivers:
             attachments = self.make_attachments(res)
             Sender(self.config)(attachments, body=f"Ci joint, veuillez trouver les {len(res)} annonces du jour qui "
-                                                  f"correspondent à vos critères")
+            f"correspondent à vos critères")
         self.log.info("Finished run")
 
     def make_attachments(self, result):
