@@ -2,7 +2,7 @@ import re
 from datetime import datetime
 from json import dumps
 from lzma import compress
-from time import sleep
+from time import sleep, time
 
 from googlemaps.exceptions import _OverQueryLimit
 from pandas import DataFrame
@@ -81,7 +81,12 @@ class LBC(Firefox):
     @property
     def need_identity_change(self):
         title = self.title
-        res = "blocked" in title and ("leboncoin" not in title or title == "about:config")
+        blocked_captcha = "blocked" in title
+        if self.config.solve_captcha_by_hand:
+            while "blocked" in self.title:
+                print("Please solve captcha (%i)" % time())
+                sleep(5)
+        res = blocked_captcha and ("leboncoin" not in title or title == "about:config")
         if res:
             self.log.debug("Need identity change because title is: %s" % title)
         return res
