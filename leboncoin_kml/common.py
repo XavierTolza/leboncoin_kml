@@ -1,3 +1,4 @@
+import inspect
 from os.path import join, dirname, abspath
 
 import numpy as np
@@ -7,6 +8,14 @@ N_PROXY = 100
 DEFAULT_PROXY_FILE = join(dirname(abspath(__file__)), "assets/proxylist.txt")
 
 assets_folder = join(dirname(abspath(__file__)), "assets")
+
+def isdebugging():
+  for frame in inspect.stack():
+    if frame[1].endswith("pydevd.py"):
+      return True
+  return False
+
+DEBUG=isdebugging()
 
 
 def supprime_accent(ligne):
