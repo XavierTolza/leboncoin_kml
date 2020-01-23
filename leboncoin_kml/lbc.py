@@ -119,7 +119,7 @@ class LBC(Firefox):
             self.__current_url = url
             self.get(url)
         except NoSuchElementException:
-            self.info("Final page reached")
+            self.info("Final page reached when searching for next page")
             raise FinalPageReached()
 
     @property

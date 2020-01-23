@@ -112,7 +112,7 @@ class HTMLFormatter(object):
             i["coordinates"] = i.latlng.tolist()
 
         latlng = np.array([i.latlng for i in elements])
-        map_zoom = int(np.round(np.std(latlng, axis=0).max()*117.57))
+        map_zoom = 9
 
         for k in directions.keys():
             directions[k] = dict(min=np.min(directions[k]), max=np.max(directions[k]))
@@ -124,7 +124,7 @@ class HTMLFormatter(object):
 
 
 if __name__ == '__main__':
-    with open("data.json", "r") as fp:
+    with open("/tmp/data.json", "r") as fp:
         data = json.load(fp)
     filters = Config().filters
     res = HTMLFormatter()(data)

@@ -57,7 +57,7 @@ class PBrocker(Process, LoggingClass):
             self.append(proxy)
 
     def append(self, value):
-        self.log.debug(f"Found new proxy: {value}. Queue has size {self.data.qsize()}")
+        # self.log.debug(f"Found new proxy: {value}. Queue has size {self.data.qsize()}")
         self.data.put(value)
 
     def stop(self):
